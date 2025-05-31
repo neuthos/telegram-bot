@@ -1,6 +1,12 @@
 import {Database} from "../config/database";
 import {Logger} from "../config/logger";
-import {UserSession, RegisteredUser, FormData, SessionStep} from "../types";
+import {
+  UserSession,
+  KYCApplication,
+  KYCPhoto,
+  FormData,
+  SessionStep,
+} from "../types";
 
 export class SessionService {
   private db = Database.getInstance();
@@ -69,37 +75,40 @@ export class SessionService {
     }
   }
 
-  public async getRegisteredUser(
+  public async getKYCApplication(
     telegramId: number
-  ): Promise<RegisteredUser | null> {
+  ): Promise<KYCApplication | null> {
     try {
       const result = await this.db.query(
-        "SELECT * FROM registered_sessions WHERE telegram_id = $1",
+        "SELECT * FROM kyc_applications WHERE telegram_id = $1",
         [telegramId]
       );
 
       return result.rows.length > 0 ? result.rows[0] : null;
     } catch (error) {
-      this.logger.error("Error getting registered user:", {telegramId, error});
+      this.logger.error("Error getting KYC application:", {telegramId, error});
       throw error;
     }
   }
 
-  public async isKtpRegistered(ktpNumber: string): Promise<boolean> {
+  public async isIdCardRegistered(idCardNumber: string): Promise<boolean> {
     try {
       const activeResult = await this.db.query(
-        "SELECT 1 FROM active_sessions WHERE form_data->>'nomor_ktp' = $1",
-        [ktpNumber]
+        "SELECT 1 FROM active_sessions WHERE form_data->>'id_card_number' = $1",
+        [idCardNumber]
       );
 
       const registeredResult = await this.db.query(
-        "SELECT 1 FROM registered_sessions WHERE nomor_ktp = $1",
-        [ktpNumber]
+        "SELECT 1 FROM kyc_applications WHERE id_card_number = $1",
+        [idCardNumber]
       );
 
       return activeResult.rows.length > 0 || registeredResult.rows.length > 0;
     } catch (error) {
-      this.logger.error("Error checking KTP registration:", {ktpNumber, error});
+      this.logger.error("Error checking ID card registration:", {
+        idCardNumber,
+        error,
+      });
       throw error;
     }
   }
@@ -111,24 +120,98 @@ export class SessionService {
     try {
       await dbClient.query("BEGIN");
 
-      // Insert to registered_sessions
-      await dbClient.query(
-        `INSERT INTO registered_sessions 
-                 (telegram_id, username, first_name, last_name, nama, nomor_telepon, nomor_ktp, alamat, status)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'draft')`,
+      // Insert KYC application
+      const applicationResult = await dbClient.query(
+        `INSERT INTO kyc_applications 
+                 (telegram_id, username, first_name, last_name, agent_name, agent_address, 
+                  owner_name, business_field, pic_name, pic_phone, id_card_number, tax_number,
+                  account_holder_name, bank_name, account_number, signature_initial, 
+                  signature_photo_path, confirm_date, status)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, CURRENT_TIMESTAMP, 'draft')
+                 RETURNING id`,
         [
           session.telegram_id,
           session.username,
           session.first_name,
           session.last_name,
-          session.form_data.nama,
-          session.form_data.nomor_telepon,
-          session.form_data.nomor_ktp,
-          session.form_data.alamat,
+          session.form_data.agent_name,
+          session.form_data.agent_address,
+          session.form_data.owner_name,
+          session.form_data.business_field,
+          session.form_data.pic_name,
+          session.form_data.pic_phone,
+          session.form_data.id_card_number,
+          session.form_data.tax_number || null,
+          session.form_data.account_holder_name,
+          session.form_data.bank_name,
+          session.form_data.account_number,
+          session.form_data.signature_initial,
+          session.form_data.signature_photo || null,
         ]
       );
 
-      // Delete from active_sessions
+      const applicationId = applicationResult.rows[0].id;
+
+      // Insert photos
+      const photos = [];
+
+      // Location photos (1-4)
+      if (session.form_data.location_photos) {
+        for (const photoPath of session.form_data.location_photos) {
+          photos.push({
+            application_id: applicationId,
+            photo_type: "location_photos",
+            file_path: photoPath,
+            file_name: photoPath.split("/").pop() || "",
+          });
+        }
+      }
+
+      // Bank book photo
+      if (session.form_data.bank_book_photo) {
+        photos.push({
+          application_id: applicationId,
+          photo_type: "bank_book",
+          file_path: session.form_data.bank_book_photo,
+          file_name: session.form_data.bank_book_photo.split("/").pop() || "",
+        });
+      }
+
+      // ID card photo
+      if (session.form_data.id_card_photo) {
+        photos.push({
+          application_id: applicationId,
+          photo_type: "id_card",
+          file_path: session.form_data.id_card_photo,
+          file_name: session.form_data.id_card_photo.split("/").pop() || "",
+        });
+      }
+
+      // Signature photo (optional)
+      if (session.form_data.signature_photo) {
+        photos.push({
+          application_id: applicationId,
+          photo_type: "signature",
+          file_path: session.form_data.signature_photo,
+          file_name: session.form_data.signature_photo.split("/").pop() || "",
+        });
+      }
+
+      // Insert all photos
+      for (const photo of photos) {
+        await dbClient.query(
+          `INSERT INTO kyc_photos (application_id, photo_type, file_path, file_name)
+                     VALUES ($1, $2, $3, $4)`,
+          [
+            photo.application_id,
+            photo.photo_type,
+            photo.file_path,
+            photo.file_name,
+          ]
+        );
+      }
+
+      // Delete active session
       await dbClient.query(
         "DELETE FROM active_sessions WHERE telegram_id = $1",
         [session.telegram_id]
@@ -136,9 +219,10 @@ export class SessionService {
 
       await dbClient.query("COMMIT");
 
-      this.logger.info("Registration completed successfully:", {
+      this.logger.info("KYC registration completed successfully:", {
         telegramId: session.telegram_id,
-        ktpNumber: session.form_data.nomor_ktp,
+        applicationId,
+        idCardNumber: session.form_data.id_card_number,
       });
     } catch (error) {
       await dbClient.query("ROLLBACK");
@@ -146,22 +230,6 @@ export class SessionService {
       throw error;
     } finally {
       dbClient.release();
-    }
-  }
-
-  public async isUserRegistered(telegramId: number): Promise<boolean> {
-    try {
-      const result = await this.db.query(
-        "SELECT 1 FROM registered_sessions WHERE telegram_id = $1",
-        [telegramId]
-      );
-      return result.rows.length > 0;
-    } catch (error) {
-      this.logger.error("Error checking user registration:", {
-        telegramId,
-        error,
-      });
-      throw error;
     }
   }
 
@@ -179,10 +247,43 @@ export class SessionService {
   }
 
   public async getNextStep(formData: FormData): Promise<SessionStep> {
-    if (!formData.nama) return SessionStep.NAMA;
-    if (!formData.nomor_telepon) return SessionStep.NOMOR_TELEPON;
-    if (!formData.nomor_ktp) return SessionStep.NOMOR_KTP;
-    if (!formData.alamat) return SessionStep.ALAMAT;
+    if (!formData.agent_name) return SessionStep.AGENT_NAME;
+    if (!formData.agent_address) return SessionStep.AGENT_ADDRESS;
+    if (!formData.owner_name) return SessionStep.OWNER_NAME;
+    if (!formData.business_field) return SessionStep.BUSINESS_FIELD;
+    if (!formData.pic_name) return SessionStep.PIC_NAME;
+    if (!formData.pic_phone) return SessionStep.PIC_PHONE;
+    if (!formData.id_card_number) return SessionStep.ID_CARD_NUMBER;
+    if (formData.tax_number === undefined) return SessionStep.TAX_NUMBER; // Allow empty string
+    if (!formData.account_holder_name) return SessionStep.ACCOUNT_HOLDER_NAME;
+    if (!formData.bank_name) return SessionStep.BANK_NAME;
+    if (!formData.account_number) return SessionStep.ACCOUNT_NUMBER;
+    if (!formData.signature_initial) return SessionStep.SIGNATURE_INITIAL;
+    if (!formData.location_photos || formData.location_photos.length === 0)
+      return SessionStep.LOCATION_PHOTOS;
+    if (!formData.bank_book_photo) return SessionStep.BANK_BOOK_PHOTO;
+    if (!formData.id_card_photo) return SessionStep.ID_CARD_PHOTO;
+    if (formData.signature_photo === undefined)
+      return SessionStep.SIGNATURE_PHOTO; // Optional
     return SessionStep.CONFIRMATION;
+  }
+
+  public async getApplicationPhotos(
+    applicationId: number
+  ): Promise<KYCPhoto[]> {
+    try {
+      const result = await this.db.query(
+        "SELECT * FROM kyc_photos WHERE application_id = $1 ORDER BY photo_type, uploaded_at",
+        [applicationId]
+      );
+
+      return result.rows;
+    } catch (error) {
+      this.logger.error("Error getting application photos:", {
+        applicationId,
+        error,
+      });
+      throw error;
+    }
   }
 }

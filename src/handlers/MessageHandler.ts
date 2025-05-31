@@ -1,11 +1,13 @@
 import TelegramBot from "node-telegram-bot-api";
 import {SessionService} from "../services/SessionServices";
+import {FileService} from "../services/FileServices";
 import {Logger} from "../config/logger";
 import {MessageTemplates} from "../messages/MessagesTemplates";
-import {SessionStep, RegisteredUser} from "../types";
+import {SessionStep, KYCApplication} from "../types";
 
 export class MessageHandler {
   private sessionService = new SessionService();
+  private fileService = new FileService();
   private logger = Logger.getInstance();
   private messages = new MessageTemplates();
 
@@ -19,8 +21,10 @@ export class MessageHandler {
     this.logger.info("Message received:", {
       telegramId,
       username: msg.from!.username,
-      text,
+      text: text || "[photo/file]",
       messageId: msg.message_id,
+      hasPhoto: !!msg.photo,
+      hasDocument: !!msg.document,
     });
 
     try {
@@ -31,12 +35,12 @@ export class MessageHandler {
       }
 
       // Get registered user info and active session
-      const registeredUser = await this.sessionService.getRegisteredUser(
+      const registeredUser = await this.sessionService.getKYCApplication(
         telegramId
       );
       const session = await this.sessionService.getActiveSession(telegramId);
 
-      // If user is registered, block text input (no edit functionality)
+      // If user is registered, block input
       if (registeredUser) {
         await bot.sendMessage(
           telegramId,
@@ -79,8 +83,7 @@ export class MessageHandler {
   ): Promise<void> {
     this.logger.info("Command received:", {telegramId, command});
 
-    // Check if user is registered
-    const registeredUser = await this.sessionService.getRegisteredUser(
+    const registeredUser = await this.sessionService.getKYCApplication(
       telegramId
     );
 
@@ -114,7 +117,7 @@ export class MessageHandler {
             this.messages.generateAlreadyRegisteredMessage()
           );
         } else {
-          await this.handleMenuSelection(bot, telegramId, "Daftar Merchant");
+          await this.handleMenuSelection(bot, telegramId, "Daftar KYC");
         }
         break;
       case "/lihat":
@@ -144,6 +147,9 @@ export class MessageHandler {
           "Tidak, Ulangi Pendaftaran"
         );
         break;
+      case "/skip":
+        await this.handleSkipCommand(bot, telegramId);
+        break;
       case "/help":
         await this.sendHelpMessage(bot, telegramId);
         break;
@@ -160,6 +166,13 @@ export class MessageHandler {
     const telegramId = msg.from!.id;
     const text = msg.text?.trim();
 
+    // Handle photo uploads for specific steps
+    if (msg.photo && this.isPhotoStep(session.current_step)) {
+      await this.handlePhotoUpload(bot, msg, session);
+      return;
+    }
+
+    // Handle text inputs
     switch (session.current_step) {
       case SessionStep.MENU:
         await this.handleMenuSelection(bot, telegramId, text!);
@@ -167,23 +180,224 @@ export class MessageHandler {
       case SessionStep.REGISTRATION_START:
         await this.handleRegistrationOption(bot, telegramId, text!);
         break;
-      case SessionStep.NAMA:
-        await this.handleNamaInput(bot, telegramId, text!, session);
+      case SessionStep.AGENT_NAME:
+        await this.handleAgentNameInput(bot, telegramId, text!, session);
         break;
-      case SessionStep.NOMOR_TELEPON:
-        await this.handleNomorTeleponInput(bot, telegramId, text!, session);
+      case SessionStep.AGENT_ADDRESS:
+        await this.handleAgentAddressInput(bot, telegramId, text!, session);
         break;
-      case SessionStep.NOMOR_KTP:
-        await this.handleNomorKtpInput(bot, telegramId, text!, session);
+      case SessionStep.OWNER_NAME:
+        await this.handleOwnerNameInput(bot, telegramId, text!, session);
         break;
-      case SessionStep.ALAMAT:
-        await this.handleAlamatInput(bot, telegramId, text!, session);
+      case SessionStep.BUSINESS_FIELD:
+        await this.handleBusinessFieldInput(bot, telegramId, text!, session);
+        break;
+      case SessionStep.PIC_NAME:
+        await this.handlePICNameInput(bot, telegramId, text!, session);
+        break;
+      case SessionStep.PIC_PHONE:
+        await this.handlePICPhoneInput(bot, telegramId, text!, session);
+        break;
+      case SessionStep.ID_CARD_NUMBER:
+        await this.handleIdCardNumberInput(bot, telegramId, text!, session);
+        break;
+      case SessionStep.TAX_NUMBER:
+        await this.handleTaxNumberInput(bot, telegramId, text!, session);
+        break;
+      case SessionStep.ACCOUNT_HOLDER_NAME:
+        await this.handleAccountHolderNameInput(
+          bot,
+          telegramId,
+          text!,
+          session
+        );
+        break;
+      case SessionStep.BANK_NAME:
+        await this.handleBankNameInput(bot, telegramId, text!, session);
+        break;
+      case SessionStep.ACCOUNT_NUMBER:
+        await this.handleAccountNumberInput(bot, telegramId, text!, session);
+        break;
+      case SessionStep.SIGNATURE_INITIAL:
+        await this.handleSignatureInitialInput(bot, telegramId, text!, session);
+        break;
+      case SessionStep.LOCATION_PHOTOS:
+        if (text === "/lanjut") {
+          await this.proceedToNextStep(
+            bot,
+            telegramId,
+            session,
+            SessionStep.BANK_BOOK_PHOTO
+          );
+        } else {
+          await bot.sendMessage(
+            telegramId,
+            this.messages.generatePhotoValidationError("location_photos")
+          );
+        }
+        break;
+      case SessionStep.BANK_BOOK_PHOTO:
+        await bot.sendMessage(
+          telegramId,
+          this.messages.generatePhotoValidationError("bank_book_photo")
+        );
+        break;
+      case SessionStep.ID_CARD_PHOTO:
+        await bot.sendMessage(
+          telegramId,
+          this.messages.generatePhotoValidationError("id_card_photo")
+        );
+        break;
+      case SessionStep.SIGNATURE_PHOTO:
+        await bot.sendMessage(
+          telegramId,
+          this.messages.generatePhotoValidationError("signature_photo")
+        );
         break;
       case SessionStep.CONFIRMATION:
         await this.handleConfirmation(bot, telegramId, text!, session);
         break;
       default:
         await this.handleUnknownMessage(bot, telegramId);
+    }
+  }
+
+  private isPhotoStep(step: string): boolean {
+    return [
+      SessionStep.LOCATION_PHOTOS,
+      SessionStep.BANK_BOOK_PHOTO,
+      SessionStep.ID_CARD_PHOTO,
+      SessionStep.SIGNATURE_PHOTO,
+    ].includes(step as SessionStep);
+  }
+
+  private async handlePhotoUpload(
+    bot: TelegramBot,
+    msg: TelegramBot.Message,
+    session: any
+  ): Promise<void> {
+    const telegramId = msg.from!.id;
+    const photo = msg.photo![msg.photo!.length - 1]; // Get highest resolution
+
+    try {
+      const photoType = session.current_step;
+      const savedPhoto = await this.fileService.downloadAndSavePhoto(
+        bot,
+        photo.file_id,
+        telegramId,
+        photoType
+      );
+
+      // Update form data based on photo type
+      switch (photoType) {
+        case SessionStep.LOCATION_PHOTOS:
+          if (!session.form_data.location_photos) {
+            session.form_data.location_photos = [];
+          }
+          if (session.form_data.location_photos.length >= 4) {
+            await bot.sendMessage(
+              telegramId,
+              this.messages.generateLocationPhotosLimitError()
+            );
+            return;
+          }
+          session.form_data.location_photos.push(savedPhoto.filePath);
+          break;
+        case SessionStep.BANK_BOOK_PHOTO:
+          session.form_data.bank_book_photo = savedPhoto.filePath;
+          break;
+        case SessionStep.ID_CARD_PHOTO:
+          session.form_data.id_card_photo = savedPhoto.filePath;
+          break;
+        case SessionStep.SIGNATURE_PHOTO:
+          session.form_data.signature_photo = savedPhoto.filePath;
+          break;
+      }
+
+      await this.sessionService.createOrUpdateSession({
+        telegram_id: telegramId,
+        current_step: session.current_step,
+        form_data: session.form_data,
+      });
+
+      // Send success message and proceed to next step if needed
+      if (photoType === SessionStep.LOCATION_PHOTOS) {
+        const count = session.form_data.location_photos.length;
+        await bot.sendMessage(
+          telegramId,
+          this.messages.generatePhotoSuccessMessage("location_photos", count)
+        );
+
+        if (count >= 4) {
+          await this.proceedToNextStep(
+            bot,
+            telegramId,
+            session,
+            SessionStep.BANK_BOOK_PHOTO
+          );
+        }
+      } else {
+        await bot.sendMessage(
+          telegramId,
+          this.messages.generatePhotoSuccessMessage(photoType)
+        );
+
+        // Auto proceed to next step
+        const nextStep = await this.getNextStepAfterPhoto(photoType);
+        if (nextStep) {
+          await this.proceedToNextStep(bot, telegramId, session, nextStep);
+        }
+      }
+    } catch (error) {
+      this.logger.error("Error handling photo upload:", {
+        telegramId,
+        photoType: session.current_step,
+        error,
+      });
+      await bot.sendMessage(
+        telegramId,
+        "Gagal menyimpan foto. Silakan coba lagi."
+      );
+    }
+  }
+
+  private async getNextStepAfterPhoto(
+    currentStep: string
+  ): Promise<SessionStep | null> {
+    switch (currentStep) {
+      case SessionStep.BANK_BOOK_PHOTO:
+        return SessionStep.ID_CARD_PHOTO;
+      case SessionStep.ID_CARD_PHOTO:
+        return SessionStep.SIGNATURE_PHOTO;
+      case SessionStep.SIGNATURE_PHOTO:
+        return SessionStep.CONFIRMATION;
+      default:
+        return null;
+    }
+  }
+
+  private async proceedToNextStep(
+    bot: TelegramBot,
+    telegramId: number,
+    session: any,
+    nextStep: SessionStep
+  ): Promise<void> {
+    await this.sessionService.createOrUpdateSession({
+      telegram_id: telegramId,
+      current_step: nextStep,
+      form_data: session.form_data,
+    });
+
+    if (nextStep === SessionStep.CONFIRMATION) {
+      await bot.sendMessage(
+        telegramId,
+        this.messages.generateConfirmationMessage(session.form_data)
+      );
+    } else {
+      await bot.sendMessage(
+        telegramId,
+        this.messages.generateContinueRegistrationMessage(nextStep)
+      );
     }
   }
 
@@ -198,7 +412,7 @@ export class MessageHandler {
   private async sendRegisteredWelcomeMessage(
     bot: TelegramBot,
     telegramId: number,
-    user: RegisteredUser
+    user: KYCApplication
   ): Promise<void> {
     await bot.sendMessage(
       telegramId,
@@ -227,7 +441,6 @@ export class MessageHandler {
       current_step: SessionStep.MENU,
       form_data: existingSession?.form_data || {},
     });
-
     await this.sendWelcomeMessage(bot, telegramId);
   }
 
@@ -237,16 +450,11 @@ export class MessageHandler {
     text: string
   ): Promise<void> {
     switch (text) {
-      case "/daftar - 📝 Daftar Merchant":
-      case "Daftar Merchant":
-        const existingSession = await this.sessionService.getActiveSession(
-          telegramId
-        );
-
+      case "Daftar KYC":
         await this.sessionService.createOrUpdateSession({
           telegram_id: telegramId,
           current_step: SessionStep.REGISTRATION_START,
-          form_data: existingSession?.form_data || {},
+          form_data: {},
         });
 
         await bot.sendMessage(
@@ -254,7 +462,6 @@ export class MessageHandler {
           this.messages.generateRegistrationOptionsMessage()
         );
         break;
-      case "/menu - 🏠 Menu Utama":
       case "Menu Utama":
       case "Kembali ke Menu Utama":
         await this.handleMenuToMain(bot, telegramId);
@@ -271,15 +478,14 @@ export class MessageHandler {
     text: string
   ): Promise<void> {
     switch (text) {
-      case "/mulai - 🆕 Mulai Pendaftaran Baru":
       case "Mulai Pendaftaran Baru":
         await this.sessionService.resetSession(telegramId);
         await this.startRegistration(bot, telegramId);
         break;
-      case "/lanjut - ⏩ Lanjutkan Sesi Pendaftaran":
+      case "Lanjutkan Sesi Pendaftaran":
         await this.continueRegistration(bot, telegramId);
         break;
-      case "/menu - 🏠 Kembali ke Menu Utama":
+      case "Kembali ke Menu Utama":
         await this.handleMenuToMain(bot, telegramId);
         break;
       default:
@@ -291,22 +497,15 @@ export class MessageHandler {
     bot: TelegramBot,
     telegramId: number
   ): Promise<void> {
-    const existingSession = await this.sessionService.getActiveSession(
-      telegramId
-    );
-
     await this.sessionService.createOrUpdateSession({
       telegram_id: telegramId,
-      current_step: SessionStep.NAMA,
-      form_data: existingSession?.form_data || {},
+      current_step: SessionStep.AGENT_NAME,
+      form_data: {},
     });
 
     await bot.sendMessage(
       telegramId,
-      this.messages.generateStartRegistrationMessage(),
-      {
-        reply_markup: {remove_keyboard: true},
-      }
+      this.messages.generateStartRegistrationMessage()
     );
   }
 
@@ -317,14 +516,12 @@ export class MessageHandler {
     const session = await this.sessionService.getActiveSession(telegramId);
 
     if (!session || !session.form_data) {
-      // No existing session, start fresh
       await this.startRegistration(bot, telegramId);
       return;
     }
-    console.log({session});
-    // Determine next step based on existing form data
+
     const nextStep = await this.sessionService.getNextStep(session.form_data);
-    console.log({nextStep});
+
     await this.sessionService.createOrUpdateSession({
       telegram_id: telegramId,
       current_step: nextStep,
@@ -339,16 +536,13 @@ export class MessageHandler {
     } else {
       await bot.sendMessage(
         telegramId,
-        this.messages.generateContinueRegistrationMessage(nextStep),
-        {
-          reply_markup: {remove_keyboard: true},
-        }
+        this.messages.generateContinueRegistrationMessage(nextStep)
       );
     }
   }
 
-  // Registration Form Handlers
-  private async handleNamaInput(
+  // Input Handlers
+  private async handleAgentNameInput(
     bot: TelegramBot,
     telegramId: number,
     text: string,
@@ -357,25 +551,149 @@ export class MessageHandler {
     if (!text || text.length < 3) {
       await bot.sendMessage(
         telegramId,
-        this.messages.generateNamaValidationError()
+        this.messages.generateFieldValidationError("agent_name")
       );
       return;
     }
 
-    session.form_data.nama = text;
+    session.form_data.agent_name = text;
     await this.sessionService.createOrUpdateSession({
       telegram_id: telegramId,
-      current_step: SessionStep.NOMOR_TELEPON,
+      current_step: SessionStep.AGENT_ADDRESS,
       form_data: session.form_data,
     });
 
     await bot.sendMessage(
       telegramId,
-      this.messages.generateNamaSuccessMessage(text)
+      this.messages.generateFieldSuccessMessage(
+        "agent_name",
+        text,
+        "agent_address"
+      )
     );
   }
 
-  private async handleNomorTeleponInput(
+  private async handleAgentAddressInput(
+    bot: TelegramBot,
+    telegramId: number,
+    text: string,
+    session: any
+  ): Promise<void> {
+    if (!text || text.length < 10) {
+      await bot.sendMessage(
+        telegramId,
+        this.messages.generateFieldValidationError("agent_address")
+      );
+      return;
+    }
+
+    session.form_data.agent_address = text;
+    await this.sessionService.createOrUpdateSession({
+      telegram_id: telegramId,
+      current_step: SessionStep.OWNER_NAME,
+      form_data: session.form_data,
+    });
+
+    await bot.sendMessage(
+      telegramId,
+      this.messages.generateFieldSuccessMessage(
+        "agent_address",
+        text,
+        "owner_name"
+      )
+    );
+  }
+
+  private async handleOwnerNameInput(
+    bot: TelegramBot,
+    telegramId: number,
+    text: string,
+    session: any
+  ): Promise<void> {
+    if (!text || text.length < 3) {
+      await bot.sendMessage(
+        telegramId,
+        this.messages.generateFieldValidationError("owner_name")
+      );
+      return;
+    }
+
+    session.form_data.owner_name = text;
+    await this.sessionService.createOrUpdateSession({
+      telegram_id: telegramId,
+      current_step: SessionStep.BUSINESS_FIELD,
+      form_data: session.form_data,
+    });
+
+    await bot.sendMessage(
+      telegramId,
+      this.messages.generateFieldSuccessMessage(
+        "owner_name",
+        text,
+        "business_field"
+      )
+    );
+  }
+
+  private async handleBusinessFieldInput(
+    bot: TelegramBot,
+    telegramId: number,
+    text: string,
+    session: any
+  ): Promise<void> {
+    if (!text || text.length < 3) {
+      await bot.sendMessage(
+        telegramId,
+        this.messages.generateFieldValidationError("business_field")
+      );
+      return;
+    }
+
+    session.form_data.business_field = text;
+    await this.sessionService.createOrUpdateSession({
+      telegram_id: telegramId,
+      current_step: SessionStep.PIC_NAME,
+      form_data: session.form_data,
+    });
+
+    await bot.sendMessage(
+      telegramId,
+      this.messages.generateFieldSuccessMessage(
+        "business_field",
+        text,
+        "pic_name"
+      )
+    );
+  }
+
+  private async handlePICNameInput(
+    bot: TelegramBot,
+    telegramId: number,
+    text: string,
+    session: any
+  ): Promise<void> {
+    if (!text || text.length < 3) {
+      await bot.sendMessage(
+        telegramId,
+        this.messages.generateFieldValidationError("pic_name")
+      );
+      return;
+    }
+
+    session.form_data.pic_name = text;
+    await this.sessionService.createOrUpdateSession({
+      telegram_id: telegramId,
+      current_step: SessionStep.PIC_PHONE,
+      form_data: session.form_data,
+    });
+
+    await bot.sendMessage(
+      telegramId,
+      this.messages.generateFieldSuccessMessage("pic_name", text, "pic_phone")
+    );
+  }
+
+  private async handlePICPhoneInput(
     bot: TelegramBot,
     telegramId: number,
     text: string,
@@ -385,86 +703,280 @@ export class MessageHandler {
     if (!phoneRegex.test(text)) {
       await bot.sendMessage(
         telegramId,
-        this.messages.generateTeleponValidationError()
+        this.messages.generateFieldValidationError("pic_phone")
       );
       return;
     }
 
-    session.form_data.nomor_telepon = text;
+    session.form_data.pic_phone = text;
     await this.sessionService.createOrUpdateSession({
       telegram_id: telegramId,
-      current_step: SessionStep.NOMOR_KTP,
+      current_step: SessionStep.ID_CARD_NUMBER,
       form_data: session.form_data,
     });
 
     await bot.sendMessage(
       telegramId,
-      this.messages.generateTeleponSuccessMessage(text)
+      this.messages.generateFieldSuccessMessage(
+        "pic_phone",
+        text,
+        "id_card_number"
+      )
     );
   }
 
-  private async handleNomorKtpInput(
+  private async handleIdCardNumberInput(
     bot: TelegramBot,
     telegramId: number,
     text: string,
     session: any
   ): Promise<void> {
-    const ktpRegex = /^[0-9]{16}$/;
-    if (!ktpRegex.test(text)) {
+    const idCardRegex = /^[0-9]{16}$/;
+    if (!idCardRegex.test(text)) {
       await bot.sendMessage(
         telegramId,
-        this.messages.generateKtpValidationError()
+        this.messages.generateFieldValidationError("id_card_number")
       );
       return;
     }
 
-    const isKtpRegistered = await this.sessionService.isKtpRegistered(text);
-    if (isKtpRegistered) {
+    const isIdCardRegistered = await this.sessionService.isIdCardRegistered(
+      text
+    );
+    if (isIdCardRegistered) {
       await bot.sendMessage(
         telegramId,
-        this.messages.generateKtpDuplicateError()
+        this.messages.generateIdCardDuplicateError()
       );
       return;
     }
 
-    session.form_data.nomor_ktp = text;
+    session.form_data.id_card_number = text;
     await this.sessionService.createOrUpdateSession({
       telegram_id: telegramId,
-      current_step: SessionStep.ALAMAT,
+      current_step: SessionStep.TAX_NUMBER,
       form_data: session.form_data,
     });
 
     await bot.sendMessage(
       telegramId,
-      this.messages.generateKtpSuccessMessage(text)
+      this.messages.generateFieldSuccessMessage(
+        "id_card_number",
+        text,
+        "tax_number"
+      )
     );
   }
 
-  private async handleAlamatInput(
+  private async handleTaxNumberInput(
     bot: TelegramBot,
     telegramId: number,
     text: string,
     session: any
   ): Promise<void> {
-    if (!text || text.length < 10) {
+    if (text && text.length > 0) {
+      const taxRegex = /^[0-9]{15}$/;
+      if (!taxRegex.test(text)) {
+        await bot.sendMessage(
+          telegramId,
+          this.messages.generateFieldValidationError("tax_number")
+        );
+        return;
+      }
+    }
+
+    session.form_data.tax_number = text || "";
+    await this.sessionService.createOrUpdateSession({
+      telegram_id: telegramId,
+      current_step: SessionStep.ACCOUNT_HOLDER_NAME,
+      form_data: session.form_data,
+    });
+
+    const displayValue = text || "Tidak diisi";
+    await bot.sendMessage(
+      telegramId,
+      this.messages.generateFieldSuccessMessage(
+        "tax_number",
+        displayValue,
+        "account_holder_name"
+      )
+    );
+  }
+
+  private async handleAccountHolderNameInput(
+    bot: TelegramBot,
+    telegramId: number,
+    text: string,
+    session: any
+  ): Promise<void> {
+    if (!text || text.length < 3) {
       await bot.sendMessage(
         telegramId,
-        this.messages.generateAlamatValidationError()
+        this.messages.generateFieldValidationError("account_holder_name")
       );
       return;
     }
 
-    session.form_data.alamat = text;
+    session.form_data.account_holder_name = text;
     await this.sessionService.createOrUpdateSession({
       telegram_id: telegramId,
-      current_step: SessionStep.CONFIRMATION,
+      current_step: SessionStep.BANK_NAME,
       form_data: session.form_data,
     });
 
     await bot.sendMessage(
       telegramId,
-      this.messages.generateConfirmationMessage(session.form_data)
+      this.messages.generateFieldSuccessMessage(
+        "account_holder_name",
+        text,
+        "bank_name"
+      )
     );
+  }
+
+  private async handleBankNameInput(
+    bot: TelegramBot,
+    telegramId: number,
+    text: string,
+    session: any
+  ): Promise<void> {
+    if (!text || text.length < 3) {
+      await bot.sendMessage(
+        telegramId,
+        this.messages.generateFieldValidationError("bank_name")
+      );
+      return;
+    }
+
+    session.form_data.bank_name = text;
+    await this.sessionService.createOrUpdateSession({
+      telegram_id: telegramId,
+      current_step: SessionStep.ACCOUNT_NUMBER,
+      form_data: session.form_data,
+    });
+
+    await bot.sendMessage(
+      telegramId,
+      this.messages.generateFieldSuccessMessage(
+        "bank_name",
+        text,
+        "account_number"
+      )
+    );
+  }
+
+  private async handleAccountNumberInput(
+    bot: TelegramBot,
+    telegramId: number,
+    text: string,
+    session: any
+  ): Promise<void> {
+    if (!text || text.length < 8 || text.length > 20) {
+      await bot.sendMessage(
+        telegramId,
+        this.messages.generateFieldValidationError("account_number")
+      );
+      return;
+    }
+
+    session.form_data.account_number = text;
+    await this.sessionService.createOrUpdateSession({
+      telegram_id: telegramId,
+      current_step: SessionStep.SIGNATURE_INITIAL,
+      form_data: session.form_data,
+    });
+
+    await bot.sendMessage(
+      telegramId,
+      this.messages.generateFieldSuccessMessage(
+        "account_number",
+        text,
+        "signature_initial"
+      )
+    );
+  }
+
+  private async handleSignatureInitialInput(
+    bot: TelegramBot,
+    telegramId: number,
+    text: string,
+    session: any
+  ): Promise<void> {
+    if (!text || text.length < 1 || text.length > 10) {
+      await bot.sendMessage(
+        telegramId,
+        this.messages.generateFieldValidationError("signature_initial")
+      );
+      return;
+    }
+
+    session.form_data.signature_initial = text;
+    await this.sessionService.createOrUpdateSession({
+      telegram_id: telegramId,
+      current_step: SessionStep.LOCATION_PHOTOS,
+      form_data: session.form_data,
+    });
+
+    await bot.sendMessage(
+      telegramId,
+      this.messages.generateFieldSuccessMessage(
+        "signature_initial",
+        text,
+        "location_photos"
+      )
+    );
+  }
+  private async handleSkipCommand(
+    bot: TelegramBot,
+    telegramId: number
+  ): Promise<void> {
+    const session = await this.sessionService.getActiveSession(telegramId);
+    if (!session) {
+      await bot.sendMessage(
+        telegramId,
+        this.messages.generateNoActiveSessionMessage()
+      );
+      return;
+    }
+
+    if (session.current_step === SessionStep.TAX_NUMBER) {
+      session.form_data.tax_number = "";
+      await this.sessionService.createOrUpdateSession({
+        telegram_id: telegramId,
+        current_step: SessionStep.ACCOUNT_HOLDER_NAME,
+        form_data: session.form_data,
+      });
+
+      await bot.sendMessage(
+        telegramId,
+        this.messages.generateSkipMessage("tax_number")
+      );
+      await bot.sendMessage(
+        telegramId,
+        this.messages.generateContinueRegistrationMessage("account_holder_name")
+      );
+    } else if (session.current_step === SessionStep.SIGNATURE_PHOTO) {
+      session.form_data.signature_photo = "";
+      await this.sessionService.createOrUpdateSession({
+        telegram_id: telegramId,
+        current_step: SessionStep.CONFIRMATION,
+        form_data: session.form_data,
+      });
+
+      await bot.sendMessage(
+        telegramId,
+        this.messages.generateSkipMessage("signature_photo")
+      );
+      await bot.sendMessage(
+        telegramId,
+        this.messages.generateConfirmationMessage(session.form_data)
+      );
+    } else {
+      await bot.sendMessage(
+        telegramId,
+        "Command /skip hanya bisa digunakan pada field opsional (NPWP dan Foto Tanda Tangan)."
+      );
+    }
   }
 
   private async handleConfirmation(
@@ -474,15 +986,12 @@ export class MessageHandler {
     session: any
   ): Promise<void> {
     switch (text) {
-      case "/ya - ✅ Ya, Daftarkan":
       case "Ya, Daftarkan":
         await this.processRegistration(bot, telegramId, session);
         break;
-      case "/tidak - ❌ Tidak, Ulangi Pendaftaran":
       case "Tidak, Ulangi Pendaftaran":
         await this.startRegistration(bot, telegramId);
         break;
-      case "/menu - 🏠 Kembali ke Menu Utama":
       case "Kembali ke Menu Utama":
         await this.handleMenuToMain(bot, telegramId);
         break;
@@ -514,16 +1023,26 @@ export class MessageHandler {
     session: any
   ): Promise<void> {
     try {
+      // Validate minimum requirements
+      if (
+        !session.form_data.location_photos ||
+        session.form_data.location_photos.length === 0
+      ) {
+        await bot.sendMessage(
+          telegramId,
+          this.messages.generateLocationPhotosMinError()
+        );
+        return;
+      }
+
       await this.sessionService.completeRegistration(session);
 
       await bot.sendMessage(
         telegramId,
-        this.messages.generateRegistrationSuccessMessage(session.form_data),
-        {
-          reply_markup: {remove_keyboard: true},
-        }
+        this.messages.generateRegistrationSuccessMessage(session.form_data)
       );
     } catch (error) {
+      this.logger.error("Error processing registration:", {telegramId, error});
       await bot.sendMessage(
         telegramId,
         this.messages.generateRegistrationErrorMessage()
@@ -535,20 +1054,31 @@ export class MessageHandler {
   private async handleViewCommand(
     bot: TelegramBot,
     telegramId: number,
-    registeredUser: RegisteredUser | null
+    registeredUser: KYCApplication | null
   ): Promise<void> {
     if (!registeredUser) {
       await bot.sendMessage(
         telegramId,
-        "Anda belum terdaftar. Gunakan /daftar untuk mendaftar."
+        "Anda belum terdaftar KYC. Gunakan /daftar untuk mendaftar."
       );
       return;
     }
 
-    await bot.sendMessage(
-      telegramId,
-      this.messages.generateViewDataMessage(registeredUser)
-    );
+    try {
+      const photos = await this.sessionService.getApplicationPhotos(
+        registeredUser.id!
+      );
+      await bot.sendMessage(
+        telegramId,
+        this.messages.generateViewDataMessage(registeredUser, photos)
+      );
+    } catch (error) {
+      this.logger.error("Error viewing data:", {telegramId, error});
+      await bot.sendMessage(
+        telegramId,
+        this.messages.generateSystemErrorMessage()
+      );
+    }
   }
 
   // Error Handlers
@@ -556,7 +1086,7 @@ export class MessageHandler {
     bot: TelegramBot,
     telegramId: number
   ): Promise<void> {
-    const registeredUser = await this.sessionService.getRegisteredUser(
+    const registeredUser = await this.sessionService.getKYCApplication(
       telegramId
     );
 

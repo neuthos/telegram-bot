@@ -10,34 +10,88 @@ export interface UserSession {
   updated_at?: Date;
 }
 
-export interface RegisteredUser {
+export interface KYCApplication {
   id?: number;
   telegram_id: number;
   username?: string;
   first_name?: string;
   last_name?: string;
-  nama: string;
-  nomor_telepon: string;
-  nomor_ktp: string;
-  alamat: string;
+
+  // Form fields
+  agent_name: string;
+  agent_address: string;
+  owner_name: string;
+  business_field: string;
+  pic_name: string;
+  pic_phone: string;
+  id_card_number: string;
+  tax_number?: string; // Optional NPWP
+  account_holder_name: string;
+  bank_name: string;
+  account_number: string;
+
+  // System fields
+  confirm_date?: Date;
+  signature_initial: string;
+  signature_photo_path?: string;
   status: "draft" | "confirmed";
+
   created_at?: Date;
   updated_at?: Date;
 }
 
+export interface KYCPhoto {
+  id?: number;
+  application_id: number;
+  photo_type: "location_photos" | "bank_book" | "id_card" | "signature";
+  file_path: string;
+  file_name: string;
+  file_size?: number;
+  uploaded_at?: Date;
+}
+
 export interface FormData {
-  nama?: string;
-  nomor_telepon?: string;
-  nomor_ktp?: string;
-  alamat?: string;
+  agent_name?: string;
+  agent_address?: string;
+  owner_name?: string;
+  business_field?: string;
+  pic_name?: string;
+  pic_phone?: string;
+  id_card_number?: string;
+  tax_number?: string;
+  account_holder_name?: string;
+  bank_name?: string;
+  account_number?: string;
+  signature_initial?: string;
+  location_photos?: string[]; // Array of file paths
+  bank_book_photo?: string;
+  id_card_photo?: string;
+  signature_photo?: string;
 }
 
 export enum SessionStep {
   MENU = "menu",
   REGISTRATION_START = "registration_start",
-  NAMA = "nama",
-  NOMOR_TELEPON = "nomor_telepon",
-  NOMOR_KTP = "nomor_ktp",
-  ALAMAT = "alamat",
+
+  // Text inputs
+  AGENT_NAME = "agent_name",
+  AGENT_ADDRESS = "agent_address",
+  OWNER_NAME = "owner_name",
+  BUSINESS_FIELD = "business_field",
+  PIC_NAME = "pic_name",
+  PIC_PHONE = "pic_phone",
+  ID_CARD_NUMBER = "id_card_number",
+  TAX_NUMBER = "tax_number",
+  ACCOUNT_HOLDER_NAME = "account_holder_name",
+  BANK_NAME = "bank_name",
+  ACCOUNT_NUMBER = "account_number",
+  SIGNATURE_INITIAL = "signature_initial",
+
+  // Photo uploads
+  LOCATION_PHOTOS = "location_photos",
+  BANK_BOOK_PHOTO = "bank_book_photo",
+  ID_CARD_PHOTO = "id_card_photo",
+  SIGNATURE_PHOTO = "signature_photo",
+
   CONFIRMATION = "confirmation",
 }

@@ -30,7 +30,7 @@ export class KYCBot {
 
   public start(): void {
     this.logger.info("KYC Bot started successfully");
-    console.log("Bot is running...");
+    console.log("KYC Bot is running...");
   }
 
   public async stop(): Promise<void> {
