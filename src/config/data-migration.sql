@@ -41,11 +41,15 @@ CREATE TABLE kyc_applications (
     confirm_date TIMESTAMP,
     signature_initial VARCHAR(10) NOT NULL,
     signature_photo_path VARCHAR(500), -- Optional signature photo
-    status VARCHAR(20) DEFAULT 'draft' CHECK (status IN ('draft', 'confirmed')),
+    status VARCHAR(20) DEFAULT 'draft' CHECK (status IN ('draft', 'confirmed', 'rejected')),
     
+    remark TEXT NULL,
+    pdf_url TEXT NULL,
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
 
 -- Photos storage
 CREATE TABLE kyc_photos (
@@ -58,9 +62,29 @@ CREATE TABLE kyc_photos (
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE banks (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL UNIQUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insert sample banks
+INSERT INTO banks (name) VALUES 
+('Bank Central Asia'),
+('Bank Mandiri'),
+('Bank Negara Indonesia'), 
+('Bank Rakyat Indonesia'),
+('Bank CIMB Niaga'),
+('Bank Danamon'),
+('Bank Permata'),
+('Bank Syariah Indonesia'),
+('Bank Mega'),
+('Bank OCBC NISP');
+
+
 -- Indexes
 CREATE INDEX idx_active_sessions_telegram_id ON active_sessions(telegram_id);
-CREATE INDEX idx_kyc_applications_telegram_id ON kyc_applications(telegram_id);
+-- CREATE INDEX idx_kyc_applications_telegram_id ON kyc_applications(telegram_id);
 CREATE INDEX idx_kyc_applications_id_card ON kyc_applications(id_card_number);
 CREATE INDEX idx_kyc_applications_status ON kyc_applications(status);
 CREATE INDEX idx_kyc_photos_application_id ON kyc_photos(application_id);

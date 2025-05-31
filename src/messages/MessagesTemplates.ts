@@ -1,5 +1,8 @@
+import {BankService} from "../services/BankService";
+
 export class MessageTemplates {
   private botName: string;
+  private bankService = new BankService();
 
   constructor() {
     this.botName = process.env.BOT_NAME || "KYC Registration Bot";
@@ -16,7 +19,7 @@ Untuk memulai pendaftaran KYC, gunakan command:
   }
 
   public generateWelcomeMessageRegistered(
-    status: "draft" | "confirmed"
+    status: "draft" | "confirmed" | "rejected"
   ): string {
     const statusText =
       status === "draft"
@@ -100,7 +103,8 @@ Silakan masukkan nama agen:
       bank_name: "nama bank",
       account_number: "nomor rekening",
       signature_initial: "inisial untuk tanda tangan (maksimal 10 karakter)",
-      location_photos: "foto lokasi (minimal 1, maksimal 4)",
+      location_photos:
+        "foto lokasi (nama toko, tampak depan, samping dan dalam)",
       bank_book_photo: "foto buku rekening halaman pertama",
       id_card_photo: "foto KTP",
       signature_photo: "foto tanda tangan (opsional, ketik /skip untuk lewati)",
@@ -171,7 +175,8 @@ Silakan masukkan ${stepTexts[nextStep] || nextStep}:
       bank_name: "nama bank",
       account_number: "nomor rekening",
       signature_initial: "inisial untuk tanda tangan (maksimal 10 karakter)",
-      location_photos: "foto lokasi (minimal 1, maksimal 4)",
+      location_photos:
+        "foto lokasi (nama toko, tampak depan, samping dan dalam)",
     };
 
     const currentStep = this.getStepNumber(field);
@@ -366,8 +371,13 @@ ${statusIcon} **Status**: ${statusText}
     return message;
   }
 
-  public generateAlreadyRegisteredMessage(): string {
-    return "Anda sudah terdaftar KYC. Gunakan /lihat untuk melihat data.";
+  public generateAlreadyRegisteredMessage(
+    status?: "draft" | "confirmed"
+  ): string {
+    if (status === "confirmed") {
+      return "✅ Anda sudah terdaftar KYC dan telah dikonfirmasi admin. Gunakan /lihat untuk melihat data.";
+    }
+    return "⏳ Anda sudah terdaftar KYC dan sedang menunggu konfirmasi admin. Gunakan /lihat untuk melihat data.";
   }
 
   public generateUnknownMessage(): string {
@@ -450,5 +460,41 @@ Ketik /lanjut untuk melanjutkan ke step berikutnya.
 Silakan kirim foto lokasi (Nama Toko, tampak depan, samping dan dalam):
 
 /menu - 🏠 Kembali ke menu utama`;
+  }
+
+  public generateWelcomeMessageRejected(remark: string): string {
+    return `🎉 Selamat datang kembali di ${this.botName}!
+
+❌ Aplikasi KYC sebelumnya ditolak.
+📝 Alasan: ${remark}
+
+Anda dapat mendaftar ulang dengan data yang benar.
+
+/daftar - 📝 Daftar KYC Ulang
+/menu - 🏠 Menu Utama
+/help - ❓ Bantuan`;
+  }
+  public async generateBankSelectionMessage(): Promise<string> {
+    try {
+      const banks = await this.bankService.getAllBanks();
+      const bankOptions = banks.map((bank) => `/${bank}`).join("\n");
+
+      return `🏦 *Pilih Bank*
+
+Silakan pilih bank Anda dengan mengetik:
+
+${bankOptions}
+
+Ketik sesuai format di atas (dengan tanda /)`;
+    } catch (error) {
+      return `🏦 *Pilih Bank*
+
+Silakan ketik nama bank Anda dengan format:
+/Bank Central Asia
+/Bank Mandiri
+dst.
+
+(Format: /NamaBank)`;
+    }
   }
 }

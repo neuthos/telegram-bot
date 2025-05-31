@@ -6,6 +6,7 @@ import {
   KYCPhoto,
   FormData,
   SessionStep,
+  KYCListResponse,
 } from "../types";
 
 export class SessionService {
@@ -75,22 +76,6 @@ export class SessionService {
     }
   }
 
-  public async getKYCApplication(
-    telegramId: number
-  ): Promise<KYCApplication | null> {
-    try {
-      const result = await this.db.query(
-        "SELECT * FROM kyc_applications WHERE telegram_id = $1",
-        [telegramId]
-      );
-
-      return result.rows.length > 0 ? result.rows[0] : null;
-    } catch (error) {
-      this.logger.error("Error getting KYC application:", {telegramId, error});
-      throw error;
-    }
-  }
-
   public async isIdCardRegistered(idCardNumber: string): Promise<boolean> {
     try {
       const activeResult = await this.db.query(
@@ -120,7 +105,6 @@ export class SessionService {
     try {
       await dbClient.query("BEGIN");
 
-      // Insert KYC application
       const applicationResult = await dbClient.query(
         `INSERT INTO kyc_applications 
                  (telegram_id, username, first_name, last_name, agent_name, agent_address, 
@@ -152,10 +136,8 @@ export class SessionService {
 
       const applicationId = applicationResult.rows[0].id;
 
-      // Insert photos
       const photos = [];
 
-      // Location photos (1-4)
       if (session.form_data.location_photos) {
         for (const photoPath of session.form_data.location_photos) {
           photos.push({
@@ -167,7 +149,6 @@ export class SessionService {
         }
       }
 
-      // Bank book photo
       if (session.form_data.bank_book_photo) {
         photos.push({
           application_id: applicationId,
@@ -177,7 +158,6 @@ export class SessionService {
         });
       }
 
-      // ID card photo
       if (session.form_data.id_card_photo) {
         photos.push({
           application_id: applicationId,
@@ -187,7 +167,6 @@ export class SessionService {
         });
       }
 
-      // Signature photo (optional)
       if (session.form_data.signature_photo) {
         photos.push({
           application_id: applicationId,
@@ -197,7 +176,6 @@ export class SessionService {
         });
       }
 
-      // Insert all photos
       for (const photo of photos) {
         await dbClient.query(
           `INSERT INTO kyc_photos (application_id, photo_type, file_path, file_name)
@@ -211,7 +189,6 @@ export class SessionService {
         );
       }
 
-      // Delete active session
       await dbClient.query(
         "DELETE FROM active_sessions WHERE telegram_id = $1",
         [session.telegram_id]
@@ -254,7 +231,7 @@ export class SessionService {
     if (!formData.pic_name) return SessionStep.PIC_NAME;
     if (!formData.pic_phone) return SessionStep.PIC_PHONE;
     if (!formData.id_card_number) return SessionStep.ID_CARD_NUMBER;
-    if (formData.tax_number === undefined) return SessionStep.TAX_NUMBER; // Allow empty string
+    if (formData.tax_number === undefined) return SessionStep.TAX_NUMBER;
     if (!formData.account_holder_name) return SessionStep.ACCOUNT_HOLDER_NAME;
     if (!formData.bank_name) return SessionStep.BANK_NAME;
     if (!formData.account_number) return SessionStep.ACCOUNT_NUMBER;
@@ -264,7 +241,7 @@ export class SessionService {
     if (!formData.bank_book_photo) return SessionStep.BANK_BOOK_PHOTO;
     if (!formData.id_card_photo) return SessionStep.ID_CARD_PHOTO;
     if (formData.signature_photo === undefined)
-      return SessionStep.SIGNATURE_PHOTO; // Optional
+      return SessionStep.SIGNATURE_PHOTO;
     return SessionStep.CONFIRMATION;
   }
 
@@ -281,6 +258,146 @@ export class SessionService {
     } catch (error) {
       this.logger.error("Error getting application photos:", {
         applicationId,
+        error,
+      });
+      throw error;
+    }
+  }
+
+  public async getAllKYCApplications(): Promise<KYCListResponse[]> {
+    try {
+      const result = await this.db.query(
+        `SELECT id, telegram_id, agent_name, pic_name, pic_phone, 
+                status, created_at, pdf_url, remark
+         FROM kyc_applications 
+         ORDER BY created_at DESC`
+      );
+
+      return result.rows;
+    } catch (error) {
+      this.logger.error("Error getting all KYC applications:", error);
+      throw error;
+    }
+  }
+
+  public async getKYCApplicationById(
+    id: number
+  ): Promise<KYCApplication | null> {
+    try {
+      const result = await this.db.query(
+        "SELECT * FROM kyc_applications WHERE id = $1",
+        [id]
+      );
+
+      return result.rows.length > 0 ? result.rows[0] : null;
+    } catch (error) {
+      this.logger.error("Error getting KYC application by ID:", {id, error});
+      throw error;
+    }
+  }
+
+  public async updateApplicationStatus(
+    id: number,
+    status: "confirmed" | "rejected",
+    pdfUrl?: string
+  ): Promise<void> {
+    try {
+      const query = pdfUrl
+        ? `UPDATE kyc_applications 
+           SET status = $1, pdf_url = $2, updated_at = CURRENT_TIMESTAMP 
+           WHERE id = $3`
+        : `UPDATE kyc_applications 
+           SET status = $1, updated_at = CURRENT_TIMESTAMP 
+           WHERE id = $2`;
+
+      const params = pdfUrl ? [status, pdfUrl, id] : [status, id];
+
+      await this.db.query(query, params);
+
+      this.logger.info("Application status updated:", {
+        id,
+        status,
+        pdfUrl: pdfUrl || "none",
+      });
+    } catch (error) {
+      this.logger.error("Error updating application status:", {
+        id,
+        status,
+        error,
+      });
+      throw error;
+    }
+  }
+
+  public async rejectApplication(id: number, remark: string): Promise<void> {
+    try {
+      await this.db.query(
+        `UPDATE kyc_applications 
+         SET status = 'rejected', remark = $1, updated_at = CURRENT_TIMESTAMP 
+         WHERE id = $2`,
+        [remark, id]
+      );
+
+      this.logger.info("Application rejected:", {id, remark});
+    } catch (error) {
+      this.logger.error("Error rejecting application:", {id, remark, error});
+      throw error;
+    }
+  }
+
+  public async getKYCApplication(
+    telegramId: number
+  ): Promise<KYCApplication | null> {
+    try {
+      const result = await this.db.query(
+        "SELECT * FROM kyc_applications WHERE telegram_id = $1 ORDER BY created_at DESC LIMIT 1",
+        [telegramId]
+      );
+
+      return result.rows.length > 0 ? result.rows[0] : null;
+    } catch (error) {
+      this.logger.error("Error getting KYC application:", {telegramId, error});
+      throw error;
+    }
+  }
+
+  public async canUserRegister(
+    telegramId: number
+  ): Promise<{canRegister: boolean; reason?: string; remark?: string}> {
+    try {
+      const result = await this.db.query(
+        "SELECT status, remark FROM kyc_applications WHERE telegram_id = $1 ORDER BY created_at DESC LIMIT 1",
+        [telegramId]
+      );
+
+      if (result.rows.length === 0) {
+        return {canRegister: true};
+      }
+
+      const application = result.rows[0];
+
+      if (application.status === "rejected") {
+        return {
+          canRegister: true,
+          reason: "previous_rejected",
+          remark: application.remark,
+        };
+      }
+
+      if (
+        application.status === "confirmed" ||
+        application.status === "draft"
+      ) {
+        return {
+          canRegister: false,
+          reason: `already_${application.status}`,
+        };
+      }
+
+      return {canRegister: true};
+    } catch (error) {
+      this.logger.error("Error checking user registration eligibility:", {
+        telegramId,
         error,
       });
       throw error;

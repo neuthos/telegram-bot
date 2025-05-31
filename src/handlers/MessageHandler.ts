@@ -30,26 +30,31 @@ export class MessageHandler {
     try {
       // Handle commands first
       if (text?.startsWith("/")) {
-        await this.handleCommand(bot, telegramId, text);
+        await this.handleCommand(bot, telegramId, text, msg);
         return;
       }
 
-      // Get registered user info and active session
-      const registeredUser = await this.sessionService.getKYCApplication(
+      const registrationCheck = await this.sessionService.canUserRegister(
         telegramId
       );
       const session = await this.sessionService.getActiveSession(telegramId);
 
-      // If user is registered, block input
-      if (registeredUser) {
-        await bot.sendMessage(
-          telegramId,
-          this.messages.generateAlreadyRegisteredMessage()
-        );
+      if (!registrationCheck.canRegister) {
+        if (registrationCheck.reason === "already_confirmed") {
+          await bot.sendMessage(
+            telegramId,
+            this.messages.generateAlreadyRegisteredMessage("confirmed")
+          );
+        } else if (registrationCheck.reason === "already_draft") {
+          await bot.sendMessage(
+            telegramId,
+            this.messages.generateAlreadyRegisteredMessage("draft")
+          );
+        }
         return;
       }
 
-      // For unregistered users, handle normal registration flow
+      // For users who can register (new users or rejected users)
       let activeSession = session;
 
       if (!activeSession) {
@@ -62,7 +67,16 @@ export class MessageHandler {
           form_data: {},
         });
 
-        await this.sendWelcomeMessage(bot, telegramId);
+        if (registrationCheck.reason === "previous_rejected") {
+          await bot.sendMessage(
+            telegramId,
+            this.messages.generateWelcomeMessageRejected(
+              registrationCheck.remark!
+            )
+          );
+        } else {
+          await this.sendWelcomeMessage(bot, telegramId);
+        }
         return;
       }
 
@@ -75,17 +89,20 @@ export class MessageHandler {
       );
     }
   }
-
   private async handleCommand(
     bot: TelegramBot,
     telegramId: number,
-    command: string
+    command: string,
+    msg: TelegramBot.Message
   ): Promise<void> {
     this.logger.info("Command received:", {telegramId, command});
 
-    const registeredUser = await this.sessionService.getKYCApplication(
+    const registrationCheck = await this.sessionService.canUserRegister(
       telegramId
     );
+    const registeredUser = !registrationCheck.canRegister
+      ? await this.sessionService.getKYCApplication(telegramId)
+      : null;
 
     switch (command) {
       case "/start":
@@ -100,41 +117,53 @@ export class MessageHandler {
         }
         break;
       case "/menu":
-        if (registeredUser) {
+        if (!registrationCheck.canRegister) {
           await this.sendRegisteredWelcomeMessage(
             bot,
             telegramId,
-            registeredUser
+            registeredUser!
           );
         } else {
-          await this.handleMenuToMain(bot, telegramId);
+          await this.handleMenuToMain(bot, telegramId, msg);
         }
         break;
       case "/daftar":
-        if (registeredUser) {
-          await bot.sendMessage(
-            telegramId,
-            this.messages.generateAlreadyRegisteredMessage()
-          );
+        if (!registrationCheck.canRegister) {
+          if (registrationCheck.reason === "already_confirmed") {
+            await bot.sendMessage(
+              telegramId,
+              this.messages.generateAlreadyRegisteredMessage("confirmed")
+            );
+          } else if (registrationCheck.reason === "already_draft") {
+            await bot.sendMessage(
+              telegramId,
+              this.messages.generateAlreadyRegisteredMessage("draft")
+            );
+          }
         } else {
-          await this.handleMenuSelection(bot, telegramId, "Daftar KYC");
+          await this.handleMenuSelection(bot, telegramId, "Daftar KYC", msg);
         }
         break;
       case "/lihat":
-        await this.handleViewCommand(bot, telegramId, registeredUser);
+        const anyApplication = await this.sessionService.getKYCApplication(
+          telegramId
+        );
+        await this.handleViewCommand(bot, telegramId, anyApplication);
         break;
       case "/mulai":
         await this.handleRegistrationOption(
           bot,
           telegramId,
-          "Mulai Pendaftaran Baru"
+          "Mulai Pendaftaran Baru",
+          msg
         );
         break;
       case "/lanjut":
         await this.handleRegistrationOption(
           bot,
           telegramId,
-          "Lanjutkan Sesi Pendaftaran"
+          "Lanjutkan Sesi Pendaftaran",
+          msg
         );
         break;
       case "/ya":
@@ -175,10 +204,10 @@ export class MessageHandler {
     // Handle text inputs
     switch (session.current_step) {
       case SessionStep.MENU:
-        await this.handleMenuSelection(bot, telegramId, text!);
+        await this.handleMenuSelection(bot, telegramId, text!, msg);
         break;
       case SessionStep.REGISTRATION_START:
-        await this.handleRegistrationOption(bot, telegramId, text!);
+        await this.handleRegistrationOption(bot, telegramId, text!, msg);
         break;
       case SessionStep.AGENT_NAME:
         await this.handleAgentNameInput(bot, telegramId, text!, session);
@@ -255,7 +284,7 @@ export class MessageHandler {
         );
         break;
       case SessionStep.CONFIRMATION:
-        await this.handleConfirmation(bot, telegramId, text!, session);
+        await this.handleConfirmation(bot, telegramId, text!, session, msg);
         break;
       default:
         await this.handleUnknownMessage(bot, telegramId);
@@ -430,7 +459,8 @@ export class MessageHandler {
   // Menu Handlers
   private async handleMenuToMain(
     bot: TelegramBot,
-    telegramId: number
+    telegramId: number,
+    msg: TelegramBot.Message
   ): Promise<void> {
     const existingSession = await this.sessionService.getActiveSession(
       telegramId
@@ -438,6 +468,9 @@ export class MessageHandler {
 
     await this.sessionService.createOrUpdateSession({
       telegram_id: telegramId,
+      username: msg.from!.username,
+      first_name: msg.from!.first_name,
+      last_name: msg.from!.last_name,
       current_step: SessionStep.MENU,
       form_data: existingSession?.form_data || {},
     });
@@ -447,14 +480,22 @@ export class MessageHandler {
   private async handleMenuSelection(
     bot: TelegramBot,
     telegramId: number,
-    text: string
+    text: string,
+    msg: TelegramBot.Message
   ): Promise<void> {
     switch (text) {
       case "Daftar KYC":
+        const existingSession = await this.sessionService.getActiveSession(
+          telegramId
+        );
+
         await this.sessionService.createOrUpdateSession({
           telegram_id: telegramId,
+          username: msg.from!.username,
+          first_name: msg.from!.first_name,
+          last_name: msg.from!.last_name,
           current_step: SessionStep.REGISTRATION_START,
-          form_data: {},
+          form_data: existingSession?.form_data || {},
         });
 
         await bot.sendMessage(
@@ -464,7 +505,7 @@ export class MessageHandler {
         break;
       case "Menu Utama":
       case "Kembali ke Menu Utama":
-        await this.handleMenuToMain(bot, telegramId);
+        await this.handleMenuToMain(bot, telegramId, msg);
         break;
       default:
         await this.handleUnknownMessage(bot, telegramId);
@@ -475,18 +516,30 @@ export class MessageHandler {
   private async handleRegistrationOption(
     bot: TelegramBot,
     telegramId: number,
-    text: string
+    text: string,
+    msg: TelegramBot.Message
   ): Promise<void> {
     switch (text) {
       case "Mulai Pendaftaran Baru":
-        await this.sessionService.resetSession(telegramId);
-        await this.startRegistration(bot, telegramId);
+        await this.sessionService.createOrUpdateSession({
+          telegram_id: telegramId,
+          username: msg.from!.username,
+          first_name: msg.from!.first_name,
+          last_name: msg.from!.last_name,
+          current_step: SessionStep.AGENT_NAME,
+          form_data: {},
+        });
+
+        await bot.sendMessage(
+          telegramId,
+          this.messages.generateStartRegistrationMessage()
+        );
         break;
       case "Lanjutkan Sesi Pendaftaran":
         await this.continueRegistration(bot, telegramId);
         break;
       case "Kembali ke Menu Utama":
-        await this.handleMenuToMain(bot, telegramId);
+        await this.handleMenuToMain(bot, telegramId, msg);
         break;
       default:
         await this.handleUnknownMessage(bot, telegramId);
@@ -983,17 +1036,30 @@ export class MessageHandler {
     bot: TelegramBot,
     telegramId: number,
     text: string,
-    session: any
+    session: any,
+    msg: TelegramBot.Message
   ): Promise<void> {
     switch (text) {
       case "Ya, Daftarkan":
         await this.processRegistration(bot, telegramId, session);
         break;
       case "Tidak, Ulangi Pendaftaran":
-        await this.startRegistration(bot, telegramId);
+        await this.sessionService.createOrUpdateSession({
+          telegram_id: telegramId,
+          username: msg.from!.username,
+          first_name: msg.from!.first_name,
+          last_name: msg.from!.last_name,
+          current_step: SessionStep.AGENT_NAME,
+          form_data: {}, // Reset form data
+        });
+
+        await bot.sendMessage(
+          telegramId,
+          this.messages.generateStartRegistrationMessage()
+        );
         break;
       case "Kembali ke Menu Utama":
-        await this.handleMenuToMain(bot, telegramId);
+        await this.handleMenuToMain(bot, telegramId, msg);
         break;
       default:
         await this.handleUnknownMessage(bot, telegramId);
@@ -1014,7 +1080,17 @@ export class MessageHandler {
       return;
     }
 
-    await this.handleConfirmation(bot, telegramId, action, session);
+    // ✅ Create mock msg object from session data
+    const mockMsg = {
+      from: {
+        id: telegramId,
+        username: session.username,
+        first_name: session.first_name,
+        last_name: session.last_name,
+      },
+    } as TelegramBot.Message;
+
+    await this.handleConfirmation(bot, telegramId, action, session, mockMsg);
   }
 
   private async processRegistration(
@@ -1054,24 +1130,30 @@ export class MessageHandler {
   private async handleViewCommand(
     bot: TelegramBot,
     telegramId: number,
-    registeredUser: KYCApplication | null
+    application: KYCApplication | null
   ): Promise<void> {
-    if (!registeredUser) {
+    if (!application) {
       await bot.sendMessage(
         telegramId,
-        "Anda belum terdaftar KYC. Gunakan /daftar untuk mendaftar."
+        "Anda belum pernah mendaftar KYC. Gunakan /daftar untuk mendaftar."
       );
       return;
     }
 
     try {
       const photos = await this.sessionService.getApplicationPhotos(
-        registeredUser.id!
+        application.id!
       );
-      await bot.sendMessage(
-        telegramId,
-        this.messages.generateViewDataMessage(registeredUser, photos)
-      );
+
+      let message = this.messages.generateViewDataMessage(application, photos);
+
+      if (application.status === "rejected") {
+        message += `\n\n❌ **STATUS DITOLAK**`;
+        message += `\n📝 **Alasan**: ${application.remark}`;
+        message += `\n\n💡 Anda dapat mendaftar ulang dengan /daftar`;
+      }
+
+      await bot.sendMessage(telegramId, message);
     } catch (error) {
       this.logger.error("Error viewing data:", {telegramId, error});
       await bot.sendMessage(
@@ -1086,12 +1168,20 @@ export class MessageHandler {
     bot: TelegramBot,
     telegramId: number
   ): Promise<void> {
-    const registeredUser = await this.sessionService.getKYCApplication(
+    const registrationCheck = await this.sessionService.canUserRegister(
       telegramId
     );
 
-    if (registeredUser) {
-      await this.sendRegisteredWelcomeMessage(bot, telegramId, registeredUser);
+    if (!registrationCheck.canRegister) {
+      const registeredUser = await this.sessionService.getKYCApplication(
+        telegramId
+      );
+      await this.sendRegisteredWelcomeMessage(bot, telegramId, registeredUser!);
+    } else if (registrationCheck.reason === "previous_rejected") {
+      await bot.sendMessage(
+        telegramId,
+        this.messages.generateWelcomeMessageRejected(registrationCheck.remark!)
+      );
     } else {
       await bot.sendMessage(telegramId, this.messages.generateUnknownMessage());
     }

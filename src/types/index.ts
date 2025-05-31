@@ -34,7 +34,9 @@ export interface KYCApplication {
   confirm_date?: Date;
   signature_initial: string;
   signature_photo_path?: string;
-  status: "draft" | "confirmed";
+  status: "draft" | "confirmed" | "rejected";
+  remark?: string;
+  pdf_url?: string;
 
   created_at?: Date;
   updated_at?: Date;
@@ -94,4 +96,70 @@ export enum SessionStep {
   SIGNATURE_PHOTO = "signature_photo",
 
   CONFIRMATION = "confirmation",
+}
+
+export interface ApiResponse<T = any> {
+  success: boolean;
+  message?: string;
+  data?: T;
+}
+
+export interface KYCListItem {
+  id: number;
+  telegram_id: number;
+  agent_name: string;
+  pic_name: string;
+  status: "draft" | "confirmed" | "rejected";
+  created_at: Date;
+  pdf_url?: string;
+  remark?: string;
+}
+
+export interface RejectRequest {
+  remark: string;
+}
+
+export interface KYCApplication {
+  id?: number;
+  telegram_id: number;
+  username?: string;
+  first_name?: string;
+  last_name?: string;
+
+  // Form fields
+  agent_name: string;
+  agent_address: string;
+  owner_name: string;
+  business_field: string;
+  pic_name: string;
+  pic_phone: string;
+  id_card_number: string;
+  tax_number?: string;
+  account_holder_name: string;
+  bank_name: string;
+  account_number: string;
+
+  // System fields
+  confirm_date?: Date;
+  signature_initial: string;
+  signature_photo_path?: string;
+  status: "draft" | "confirmed" | "rejected"; // ✅ Updated
+  remark?: string; // ✅ New
+  pdf_url?: string; // ✅ New
+
+  created_at?: Date;
+  updated_at?: Date;
+}
+
+// ✅ New interface for API list response
+export interface KYCListResponse {
+  id: number;
+  telegram_id: number;
+  agent_name: string;
+  pic_name: string;
+  pic_phone: string;
+  status: "draft" | "confirmed" | "rejected";
+  created_at: Date;
+  pdf_url?: string;
+  remark?: string;
 }
