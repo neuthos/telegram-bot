@@ -25,7 +25,7 @@ export interface KYCApplication {
   pic_name: string;
   pic_phone: string;
   id_card_number: string;
-  tax_number?: string; // Optional NPWP
+  tax_number?: string;
   account_holder_name: string;
   bank_name: string;
   account_number: string;
@@ -33,7 +33,7 @@ export interface KYCApplication {
   // System fields
   confirm_date?: Date;
   signature_initial: string;
-  signature_photo_path?: string;
+  // Removed signature_photo_path
   status: "draft" | "confirmed" | "rejected";
   remark?: string;
   pdf_url?: string;
@@ -45,13 +45,12 @@ export interface KYCApplication {
 export interface KYCPhoto {
   id?: number;
   application_id: number;
-  photo_type: "location_photos" | "bank_book" | "id_card" | "signature";
-  file_path: string;
+  photo_type: "location_photos" | "bank_book" | "id_card"; // Removed signature
+  file_path: string; // This will contain CDN URLs
   file_name: string;
   file_size?: number;
   uploaded_at?: Date;
 }
-
 export interface FormData {
   agent_name?: string;
   agent_address?: string;
@@ -65,10 +64,10 @@ export interface FormData {
   bank_name?: string;
   account_number?: string;
   signature_initial?: string;
-  location_photos?: string[]; // Array of file paths
+  location_photos?: string[];
   bank_book_photo?: string;
   id_card_photo?: string;
-  signature_photo?: string;
+  terms_accepted?: boolean;
 }
 
 export enum SessionStep {
@@ -93,8 +92,9 @@ export enum SessionStep {
   LOCATION_PHOTOS = "location_photos",
   BANK_BOOK_PHOTO = "bank_book_photo",
   ID_CARD_PHOTO = "id_card_photo",
-  SIGNATURE_PHOTO = "signature_photo",
 
+  // Terms and Confirmation
+  TERMS_CONDITIONS = "terms_conditions",
   CONFIRMATION = "confirmation",
 }
 
@@ -119,39 +119,6 @@ export interface RejectRequest {
   remark: string;
 }
 
-export interface KYCApplication {
-  id?: number;
-  telegram_id: number;
-  username?: string;
-  first_name?: string;
-  last_name?: string;
-
-  // Form fields
-  agent_name: string;
-  agent_address: string;
-  owner_name: string;
-  business_field: string;
-  pic_name: string;
-  pic_phone: string;
-  id_card_number: string;
-  tax_number?: string;
-  account_holder_name: string;
-  bank_name: string;
-  account_number: string;
-
-  // System fields
-  confirm_date?: Date;
-  signature_initial: string;
-  signature_photo_path?: string;
-  status: "draft" | "confirmed" | "rejected"; // ✅ Updated
-  remark?: string; // ✅ New
-  pdf_url?: string; // ✅ New
-
-  created_at?: Date;
-  updated_at?: Date;
-}
-
-// ✅ New interface for API list response
 export interface KYCListResponse {
   id: number;
   telegram_id: number;

@@ -110,8 +110,8 @@ export class SessionService {
                  (telegram_id, username, first_name, last_name, agent_name, agent_address, 
                   owner_name, business_field, pic_name, pic_phone, id_card_number, tax_number,
                   account_holder_name, bank_name, account_number, signature_initial, 
-                  signature_photo_path, confirm_date, status)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, CURRENT_TIMESTAMP, 'draft')
+                  confirm_date, status)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, CURRENT_TIMESTAMP, 'draft')
                  RETURNING id`,
         [
           session.telegram_id,
@@ -130,21 +130,19 @@ export class SessionService {
           session.form_data.bank_name,
           session.form_data.account_number,
           session.form_data.signature_initial,
-          session.form_data.signature_photo || null,
         ]
       );
 
       const applicationId = applicationResult.rows[0].id;
-
       const photos = [];
 
       if (session.form_data.location_photos) {
-        for (const photoPath of session.form_data.location_photos) {
+        for (const photoUrl of session.form_data.location_photos) {
           photos.push({
             application_id: applicationId,
             photo_type: "location_photos",
-            file_path: photoPath,
-            file_name: photoPath.split("/").pop() || "",
+            file_path: photoUrl,
+            file_name: photoUrl.split("/").pop() || "",
           });
         }
       }
@@ -164,15 +162,6 @@ export class SessionService {
           photo_type: "id_card",
           file_path: session.form_data.id_card_photo,
           file_name: session.form_data.id_card_photo.split("/").pop() || "",
-        });
-      }
-
-      if (session.form_data.signature_photo) {
-        photos.push({
-          application_id: applicationId,
-          photo_type: "signature",
-          file_path: session.form_data.signature_photo,
-          file_name: session.form_data.signature_photo.split("/").pop() || "",
         });
       }
 
@@ -240,8 +229,8 @@ export class SessionService {
       return SessionStep.LOCATION_PHOTOS;
     if (!formData.bank_book_photo) return SessionStep.BANK_BOOK_PHOTO;
     if (!formData.id_card_photo) return SessionStep.ID_CARD_PHOTO;
-    if (formData.signature_photo === undefined)
-      return SessionStep.SIGNATURE_PHOTO;
+    if (formData.terms_accepted === undefined)
+      return SessionStep.TERMS_CONDITIONS;
     return SessionStep.CONFIRMATION;
   }
 
@@ -267,8 +256,7 @@ export class SessionService {
   public async getAllKYCApplications(): Promise<KYCListResponse[]> {
     try {
       const result = await this.db.query(
-        `SELECT id, telegram_id, agent_name, pic_name, pic_phone, 
-                status, created_at, pdf_url, remark
+        `SELECT *
          FROM kyc_applications 
          ORDER BY created_at DESC`
       );
@@ -398,6 +386,29 @@ export class SessionService {
     } catch (error) {
       this.logger.error("Error checking user registration eligibility:", {
         telegramId,
+        error,
+      });
+      throw error;
+    }
+  }
+
+  public async updateApplicationPdfUrl(
+    id: number,
+    pdfUrl: string
+  ): Promise<void> {
+    try {
+      await this.db.query(
+        `UPDATE kyc_applications 
+       SET pdf_url = $1, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $2`,
+        [pdfUrl, id]
+      );
+
+      this.logger.info("Application PDF URL updated:", {id, pdfUrl});
+    } catch (error) {
+      this.logger.error("Error updating application PDF URL:", {
+        id,
+        pdfUrl,
         error,
       });
       throw error;

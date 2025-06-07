@@ -9,10 +9,18 @@ router.use(authMiddleware);
 
 router.get("/list", kycController.getList);
 
-router.post("/:id/export-pdf", kycController.exportPdf);
+// Single operations
 
+// Bulk operations
+router.post("/bulk/export-pdf", kycController.bulkExportPdf);
+router.post("/bulk/confirm", kycController.bulkConfirmApplications);
+router.post("/bulk/reject", kycController.bulkRejectApplications);
+
+router.post("/:id/export-pdf", kycController.exportPdf);
+router.post("/:id/confirm", kycController.confirmApplication);
 router.post("/:id/reject", kycController.rejectApplication);
 
+// PDF serving
 router.get("/:id/pdf", kycController.servePdf);
 
 export default router;

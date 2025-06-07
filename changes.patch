@@ -1,0 +1,826 @@
+diff --git a/logs/combined.log b/logs/combined.log
+index c893377..751b7b4 100644
+--- a/logs/combined.log
++++ b/logs/combined.log
+@@ -500,3 +500,4 @@
+ {"level":"info","message":"API Server running on port 3000","timestamp":"2025-05-31T15:21:07.726Z"}
+ {"level":"info","message":"KYC Bot started successfully","timestamp":"2025-05-31T15:21:09.274Z"}
+ {"level":"info","message":"API Server running on port 3000","timestamp":"2025-05-31T15:21:09.276Z"}
++{"level":"error","message":"Failed to initialize app: CDN_UPLOAD_URL and CDN_API_KEY must be set","stack":"Error: CDN_UPLOAD_URL and CDN_API_KEY must be set\n    at new CDNService (/home/neuthos/Projects/telegram-bot/src/services/CDNService.ts:16:13)\n    at new FileService (/home/neuthos/Projects/telegram-bot/src/services/FileServices.ts:9:24)\n    at new MessageHandler (/home/neuthos/Projects/telegram-bot/src/handlers/MessageHandler.ts:10:25)\n    at new KYCBot (/home/neuthos/Projects/telegram-bot/src/KYCBot.ts:13:27)\n    at initializeApp (/home/neuthos/Projects/telegram-bot/src/app.ts:39:15)","timestamp":"2025-05-31T15:35:02.729Z"}
+diff --git a/logs/error.log b/logs/error.log
+index 476ded9..133312d 100644
+--- a/logs/error.log
++++ b/logs/error.log
+@@ -35,3 +35,4 @@
+ {"code":"EFATAL","level":"error","message":"Polling error: EFATAL: AggregateError","stack":"RequestError: AggregateError\n    at new RequestError (/home/neuthos/Projects/telegram-bot/node_modules/request-promise-core/lib/errors.js:14:15)\n    at plumbing.callback (/home/neuthos/Projects/telegram-bot/node_modules/request-promise-core/lib/plumbing.js:87:29)\n    at Request.RP$callback [as _callback] (/home/neuthos/Projects/telegram-bot/node_modules/request-promise-core/lib/plumbing.js:46:31)\n    at self.callback (/home/neuthos/Projects/telegram-bot/node_modules/@cypress/request/request.js:183:22)\n    at Request.emit (node:events:518:28)\n    at Request.onRequestError (/home/neuthos/Projects/telegram-bot/node_modules/@cypress/request/request.js:869:8)\n    at ClientRequest.emit (node:events:518:28)\n    at emitErrorEvent (node:_http_client:103:11)\n    at TLSSocket.socketErrorListener (node:_http_client:506:5)\n    at TLSSocket.emit (node:events:518:28)\n    at emitErrorNT (node:internal/streams/destroy:170:8)\n    at emitErrorCloseNT (node:internal/streams/destroy:129:3)\n    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)","timestamp":"2025-05-31T15:17:42.007Z"}
+ {"code":"EFATAL","level":"error","message":"Polling error: EFATAL: AggregateError","stack":"RequestError: AggregateError\n    at new RequestError (/home/neuthos/Projects/telegram-bot/node_modules/request-promise-core/lib/errors.js:14:15)\n    at plumbing.callback (/home/neuthos/Projects/telegram-bot/node_modules/request-promise-core/lib/plumbing.js:87:29)\n    at Request.RP$callback [as _callback] (/home/neuthos/Projects/telegram-bot/node_modules/request-promise-core/lib/plumbing.js:46:31)\n    at self.callback (/home/neuthos/Projects/telegram-bot/node_modules/@cypress/request/request.js:183:22)\n    at Request.emit (node:events:518:28)\n    at Request.onRequestError (/home/neuthos/Projects/telegram-bot/node_modules/@cypress/request/request.js:869:8)\n    at ClientRequest.emit (node:events:518:28)\n    at emitErrorEvent (node:_http_client:103:11)\n    at TLSSocket.socketErrorListener (node:_http_client:506:5)\n    at TLSSocket.emit (node:events:518:28)\n    at emitErrorNT (node:internal/streams/destroy:170:8)\n    at emitErrorCloseNT (node:internal/streams/destroy:129:3)\n    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)","timestamp":"2025-05-31T15:17:42.746Z"}
+ {"code":"EFATAL","level":"error","message":"Polling error: EFATAL: AggregateError","stack":"RequestError: AggregateError\n    at new RequestError (/home/neuthos/Projects/telegram-bot/node_modules/request-promise-core/lib/errors.js:14:15)\n    at plumbing.callback (/home/neuthos/Projects/telegram-bot/node_modules/request-promise-core/lib/plumbing.js:87:29)\n    at Request.RP$callback [as _callback] (/home/neuthos/Projects/telegram-bot/node_modules/request-promise-core/lib/plumbing.js:46:31)\n    at self.callback (/home/neuthos/Projects/telegram-bot/node_modules/@cypress/request/request.js:183:22)\n    at Request.emit (node:events:518:28)\n    at Request.onRequestError (/home/neuthos/Projects/telegram-bot/node_modules/@cypress/request/request.js:869:8)\n    at ClientRequest.emit (node:events:518:28)\n    at emitErrorEvent (node:_http_client:103:11)\n    at TLSSocket.socketErrorListener (node:_http_client:506:5)\n    at TLSSocket.emit (node:events:518:28)\n    at emitErrorNT (node:internal/streams/destroy:170:8)\n    at emitErrorCloseNT (node:internal/streams/destroy:129:3)\n    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)","timestamp":"2025-05-31T15:18:17.854Z"}
++{"level":"error","message":"Failed to initialize app: CDN_UPLOAD_URL and CDN_API_KEY must be set","stack":"Error: CDN_UPLOAD_URL and CDN_API_KEY must be set\n    at new CDNService (/home/neuthos/Projects/telegram-bot/src/services/CDNService.ts:16:13)\n    at new FileService (/home/neuthos/Projects/telegram-bot/src/services/FileServices.ts:9:24)\n    at new MessageHandler (/home/neuthos/Projects/telegram-bot/src/handlers/MessageHandler.ts:10:25)\n    at new KYCBot (/home/neuthos/Projects/telegram-bot/src/KYCBot.ts:13:27)\n    at initializeApp (/home/neuthos/Projects/telegram-bot/src/app.ts:39:15)","timestamp":"2025-05-31T15:35:02.729Z"}
+diff --git a/src/handlers/MessageHandler.ts b/src/handlers/MessageHandler.ts
+index d55bedd..761cde7 100644
+--- a/src/handlers/MessageHandler.ts
++++ b/src/handlers/MessageHandler.ts
+@@ -1,6 +1,7 @@
+ import TelegramBot from "node-telegram-bot-api";
+ import {SessionService} from "../services/SessionServices";
+ import {FileService} from "../services/FileServices";
++import {BankService} from "../services/BankService";
+ import {Logger} from "../config/logger";
+ import {MessageTemplates} from "../messages/MessagesTemplates";
+ import {SessionStep, KYCApplication} from "../types";
+@@ -8,6 +9,7 @@ import {SessionStep, KYCApplication} from "../types";
+ export class MessageHandler {
+   private sessionService = new SessionService();
+   private fileService = new FileService();
++  private bankService = new BankService();
+   private logger = Logger.getInstance();
+   private messages = new MessageTemplates();
+ 
+@@ -89,6 +91,7 @@ export class MessageHandler {
+       );
+     }
+   }
++
+   private async handleCommand(
+     bot: TelegramBot,
+     telegramId: number,
+@@ -183,10 +186,57 @@ export class MessageHandler {
+         await this.sendHelpMessage(bot, telegramId);
+         break;
+       default:
+-        await this.handleUnknownMessage(bot, telegramId);
++        // Check if it's a bank selection command
++        if (command.startsWith("/")) {
++          const bankCommand = command.substring(1);
++          await this.handleBankSelection(bot, telegramId, bankCommand);
++        } else {
++          await this.handleUnknownMessage(bot, telegramId);
++        }
+     }
+   }
+ 
++  private async handleBankSelection(
++    bot: TelegramBot,
++    telegramId: number,
++    bankCommand: string
++  ): Promise<void> {
++    const session = await this.sessionService.getActiveSession(telegramId);
++
++    if (!session || session.current_step !== SessionStep.BANK_NAME) {
++      await this.handleUnknownMessage(bot, telegramId);
++      return;
++    }
++
++    const bankName = await this.bankService.getBankByCommand(bankCommand);
++
++    if (!bankName) {
++      await bot.sendMessage(
++        telegramId,
++        `Bank command "/${bankCommand}" tidak tersedia. Silakan pilih dari daftar bank yang tersedia.`
++      );
++      const bankMessage = await this.messages.generateBankSelectionMessage();
++      await bot.sendMessage(telegramId, bankMessage);
++      return;
++    }
++
++    session.form_data.bank_name = bankName;
++    await this.sessionService.createOrUpdateSession({
++      telegram_id: telegramId,
++      current_step: SessionStep.ACCOUNT_NUMBER,
++      form_data: session.form_data,
++    });
++
++    await bot.sendMessage(
++      telegramId,
++      this.messages.generateFieldSuccessMessage(
++        "bank_name",
++        bankName,
++        "account_number"
++      )
++    );
++  }
++
+   private async processMessage(
+     bot: TelegramBot,
+     msg: TelegramBot.Message,
+@@ -291,6 +341,17 @@ export class MessageHandler {
+     }
+   }
+ 
++  private async handleBankNameInput(
++    bot: TelegramBot,
++    telegramId: number,
++    text: string,
++    session: any
++  ): Promise<void> {
++    // Show bank selection menu
++    const bankMessage = await this.messages.generateBankSelectionMessage();
++    await bot.sendMessage(telegramId, bankMessage);
++  }
++
+   private isPhotoStep(step: string): boolean {
+     return [
+       SessionStep.LOCATION_PHOTOS,
+@@ -397,7 +458,7 @@ export class MessageHandler {
+       case SessionStep.BANK_BOOK_PHOTO:
+         return SessionStep.ID_CARD_PHOTO;
+       case SessionStep.ID_CARD_PHOTO:
+-        return SessionStep.SIGNATURE_PHOTO;
++        return SSessionStep.CONFIRMATION;
+       case SessionStep.SIGNATURE_PHOTO:
+         return SessionStep.CONFIRMATION;
+       default:
+@@ -885,37 +946,10 @@ export class MessageHandler {
+         "bank_name"
+       )
+     );
+-  }
+ 
+-  private async handleBankNameInput(
+-    bot: TelegramBot,
+-    telegramId: number,
+-    text: string,
+-    session: any
+-  ): Promise<void> {
+-    if (!text || text.length < 3) {
+-      await bot.sendMessage(
+-        telegramId,
+-        this.messages.generateFieldValidationError("bank_name")
+-      );
+-      return;
+-    }
+-
+-    session.form_data.bank_name = text;
+-    await this.sessionService.createOrUpdateSession({
+-      telegram_id: telegramId,
+-      current_step: SessionStep.ACCOUNT_NUMBER,
+-      form_data: session.form_data,
+-    });
+-
+-    await bot.sendMessage(
+-      telegramId,
+-      this.messages.generateFieldSuccessMessage(
+-        "bank_name",
+-        text,
+-        "account_number"
+-      )
+-    );
++    // Show bank selection menu
++    const bankMessage = await this.messages.generateBankSelectionMessage();
++    await bot.sendMessage(telegramId, bankMessage);
+   }
+ 
+   private async handleAccountNumberInput(
+@@ -979,6 +1013,7 @@ export class MessageHandler {
+       )
+     );
+   }
++
+   private async handleSkipCommand(
+     bot: TelegramBot,
+     telegramId: number
+@@ -1008,22 +1043,6 @@ export class MessageHandler {
+         telegramId,
+         this.messages.generateContinueRegistrationMessage("account_holder_name")
+       );
+-    } else if (session.current_step === SessionStep.SIGNATURE_PHOTO) {
+-      session.form_data.signature_photo = "";
+-      await this.sessionService.createOrUpdateSession({
+-        telegram_id: telegramId,
+-        current_step: SessionStep.CONFIRMATION,
+-        form_data: session.form_data,
+-      });
+-
+-      await bot.sendMessage(
+-        telegramId,
+-        this.messages.generateSkipMessage("signature_photo")
+-      );
+-      await bot.sendMessage(
+-        telegramId,
+-        this.messages.generateConfirmationMessage(session.form_data)
+-      );
+     } else {
+       await bot.sendMessage(
+         telegramId,
+@@ -1080,7 +1099,7 @@ export class MessageHandler {
+       return;
+     }
+ 
+-    // ✅ Create mock msg object from session data
++    // Create mock msg object from session data
+     const mockMsg = {
+       from: {
+         id: telegramId,
+diff --git a/src/messages/MessagesTemplates.ts b/src/messages/MessagesTemplates.ts
+index d21f57e..91fd34d 100644
+--- a/src/messages/MessagesTemplates.ts
++++ b/src/messages/MessagesTemplates.ts
+@@ -55,6 +55,8 @@ Status: ${statusText}
+ 🔸 Command Konfirmasi:
+ /ya - ✅ Konfirmasi pendaftaran
+ /tidak - ❌ Ulangi pendaftaran
++/setuju - ✅ Setuju syarat & ketentuan
++/tolak - ❌ Tolak syarat & ketentuan
+ /skip - ⏭️ Lewati (untuk field opsional)
+ 
+ 📋 Form KYC meliputi:
+@@ -63,7 +65,8 @@ Status: ${statusText}
+ 3. Data Bank & Rekening
+ 4. Upload Foto Lokasi (1-4 foto)
+ 5. Upload Foto Dokumen (KTP, Buku Rekening)
+-6. Tanda Tangan
++6. Tanda Tangan Inisial
++7. Syarat & Ketentuan
+ 
+ 💡 Tips:
+ - Pastikan foto jelas dan terbaca
+@@ -82,7 +85,7 @@ Status: ${statusText}
+   public generateStartRegistrationMessage(): string {
+     return `✏️ Mulai Pendaftaran KYC
+ 
+-📝 Langkah 1/16: Nama Agen
++📝 Langkah 1/15: Nama Agen
+ 
+ Silakan masukkan nama agen:
+ 
+@@ -107,14 +110,13 @@ Silakan masukkan nama agen:
+         "foto lokasi (nama toko, tampak depan, samping dan dalam)",
+       bank_book_photo: "foto buku rekening halaman pertama",
+       id_card_photo: "foto KTP",
+-      signature_photo: "foto tanda tangan (opsional, ketik /skip untuk lewati)",
+     };
+ 
+     const stepNumber = this.getStepNumber(nextStep);
+ 
+     return `⏩ Melanjutkan pendaftaran KYC...
+ 
+-📝 Langkah ${stepNumber}/16: ${stepTexts[nextStep] || nextStep}
++📝 Langkah ${stepNumber}/15: ${stepTexts[nextStep] || nextStep}
+ 
+ Silakan masukkan ${stepTexts[nextStep] || nextStep}:
+ 
+@@ -138,7 +140,6 @@ Silakan masukkan ${stepTexts[nextStep] || nextStep}:
+       location_photos: 13,
+       bank_book_photo: 14,
+       id_card_photo: 15,
+-      signature_photo: 16,
+     };
+     return stepNumbers[step] || 0;
+   }
+@@ -187,7 +188,7 @@ Silakan masukkan ${stepTexts[nextStep] || nextStep}:
+     let message = `✅ ${fieldNames[field]}: ${value}\n\n`;
+ 
+     if (nextField && nextFieldTexts[nextField]) {
+-      message += `📝 Langkah ${nextStep}/16: ${nextFieldTexts[nextField]}\n\n`;
++      message += `📝 Langkah ${nextStep}/15: ${nextFieldTexts[nextField]}\n\n`;
+       message += `Silakan masukkan ${nextFieldTexts[nextField]}:\n\n`;
+     }
+ 
+@@ -204,7 +205,6 @@ Silakan masukkan ${stepTexts[nextStep] || nextStep}:
+       location_photos: "Foto Lokasi",
+       bank_book_photo: "Foto Buku Rekening",
+       id_card_photo: "Foto KTP",
+-      signature_photo: "Foto Tanda Tangan",
+     };
+ 
+     let message = `✅ ${photoNames[photoType]} berhasil diunggah!`;
+@@ -224,8 +224,7 @@ Silakan masukkan ${stepTexts[nextStep] || nextStep}:
+     const nextSteps: {[key: string]: string} = {
+       location_photos: "foto buku rekening halaman pertama",
+       bank_book_photo: "foto KTP",
+-      id_card_photo: "foto tanda tangan (opsional, ketik /skip untuk lewati)",
+-      signature_photo: "konfirmasi data",
++      id_card_photo: "syarat dan ketentuan",
+     };
+ 
+     if (
+@@ -242,7 +241,6 @@ Silakan masukkan ${stepTexts[nextStep] || nextStep}:
+   public generateSkipMessage(field: string): string {
+     const fieldNames: {[key: string]: string} = {
+       tax_number: "Nomor NPWP",
+-      signature_photo: "Foto Tanda Tangan",
+     };
+ 
+     return `⏭️ ${fieldNames[field]} dilewati.
+@@ -250,6 +248,24 @@ Silakan masukkan ${stepTexts[nextStep] || nextStep}:
+ /menu - 🏠 Kembali ke menu utama`;
+   }
+ 
++  public generateTermsConditionsMessage(): string {
++    return `📋 Syarat dan Ketentuan KYC
++
++Dengan melanjutkan pendaftaran, Anda menyetujui:
++
++1. ✅ Data yang diberikan adalah benar dan akurat
++2. ✅ Bertanggung jawab atas kebenaran informasi
++3. ✅ Menyetujui penggunaan data untuk verifikasi
++4. ✅ Memahami konsekuensi jika data palsu
++5. ✅ Bersedia mengikuti proses verifikasi tambahan jika diperlukan
++
++Apakah Anda setuju dengan syarat dan ketentuan di atas?
++
++/setuju - ✅ Ya, saya setuju
++/tolak - ❌ Tidak setuju
++/menu - 🏠 Menu utama`;
++  }
++
+   public generateConfirmationMessage(formData: any): string {
+     let message = `📋 Konfirmasi Data KYC
+ 
+@@ -274,7 +290,6 @@ Silakan masukkan ${stepTexts[nextStep] || nextStep}:
+ 
+ ✍️ **TANDA TANGAN**
+ - Inisial: ${formData.signature_initial}
+-- Foto Tanda Tangan: ${formData.signature_photo ? "Ada" : "Tidak ada"}
+ 
+ 📷 **DOKUMEN FOTO**
+ - Foto Lokasi: ${formData.location_photos?.length || 0} foto
+@@ -334,7 +349,6 @@ Terima kasih telah melengkapi data KYC! 🙏`;
+ 
+ ✍️ **TANDA TANGAN**
+ - Inisial: ${application.signature_initial}
+-- Foto Tanda Tangan: ${application.signature_photo_path ? "Ada" : "Tidak ada"}
+ 
+ ${statusIcon} **Status**: ${statusText}
+ 📅 **Terdaftar**: ${new Date(application.created_at).toLocaleDateString(
+@@ -346,7 +360,6 @@ ${statusIcon} **Status**: ${statusText}
+         location_photos: 0,
+         bank_book: 0,
+         id_card: 0,
+-        signature: 0,
+       };
+ 
+       photos.forEach((photo) => {
+@@ -363,9 +376,6 @@ ${statusIcon} **Status**: ${statusText}
+       message += `\n• Foto KTP: ${
+         photoCount.id_card > 0 ? "Ada" : "Tidak ada"
+       }`;
+-      message += `\n• Foto Tanda Tangan: ${
+-        photoCount.signature > 0 ? "Ada" : "Tidak ada"
+-      }`;
+     }
+ 
+     return message;
+@@ -401,7 +411,6 @@ Gunakan command:
+     return "❌ Tidak ada sesi konfirmasi aktif. Ketik /daftar untuk memulai pendaftaran.";
+   }
+ 
+-  // Validation error messages
+   public generateFieldValidationError(field: string): string {
+     const errorMessages: {[key: string]: string} = {
+       agent_name: "Nama agen harus minimal 3 karakter",
+@@ -438,7 +447,6 @@ Gunakan command:
+       location_photos: "foto lokasi",
+       bank_book_photo: "foto buku rekening",
+       id_card_photo: "foto KTP",
+-      signature_photo: "foto tanda tangan",
+     };
+ 
+     return `❌ Silakan kirim ${photoNames[photoType]} dalam format foto (JPG, PNG).
+@@ -474,12 +482,13 @@ Anda dapat mendaftar ulang dengan data yang benar.
+ /menu - 🏠 Menu Utama
+ /help - ❓ Bantuan`;
+   }
++
+   public async generateBankSelectionMessage(): Promise<string> {
+     try {
+       const banks = await this.bankService.getAllBanks();
+       const bankOptions = banks.map((bank) => `/${bank}`).join("\n");
+ 
+-      return `🏦 *Pilih Bank*
++      return `🏦 Pilih Bank
+ 
+ Silakan pilih bank Anda dengan mengetik:
+ 
+@@ -487,7 +496,7 @@ ${bankOptions}
+ 
+ Ketik sesuai format di atas (dengan tanda /)`;
+     } catch (error) {
+-      return `🏦 *Pilih Bank*
++      return `🏦 Pilih Bank
+ 
+ Silakan ketik nama bank Anda dengan format:
+ /Bank Central Asia
+diff --git a/src/services/FileServices.ts b/src/services/FileServices.ts
+deleted file mode 100644
+index 5be63b5..0000000
+--- a/src/services/FileServices.ts
++++ /dev/null
+@@ -1,111 +0,0 @@
+-import fs from "fs-extra";
+-import path from "path";
+-import {v4 as uuidv4} from "uuid";
+-import TelegramBot from "node-telegram-bot-api";
+-import {Logger} from "../config/logger";
+-
+-export class FileService {
+-  private logger = Logger.getInstance();
+-  private uploadPath: string;
+-
+-  constructor() {
+-    this.uploadPath = process.env.UPLOAD_PATH || "uploads/kyc";
+-    this.ensureUploadDirExists();
+-  }
+-
+-  private async ensureUploadDirExists(): Promise<void> {
+-    try {
+-      await fs.ensureDir(this.uploadPath);
+-    } catch (error) {
+-      this.logger.error("Error creating upload directory:", error);
+-      throw error;
+-    }
+-  }
+-
+-  public async downloadAndSavePhoto(
+-    bot: TelegramBot,
+-    fileId: string,
+-    telegramId: number,
+-    photoType: string
+-  ): Promise<{filePath: string; fileName: string; fileSize: number}> {
+-    try {
+-      // Get file info from Telegram
+-      const file = await bot.getFile(fileId);
+-
+-      if (!file.file_path) {
+-        throw new Error("File path not available");
+-      }
+-
+-      // Generate unique filename
+-      const extension = path.extname(file.file_path) || ".jpg";
+-      const fileName = `${photoType}_${uuidv4()}${extension}`;
+-      const userDir = path.join(this.uploadPath, telegramId.toString());
+-
+-      // Ensure user directory exists
+-      await fs.ensureDir(userDir);
+-
+-      const filePath = path.join(userDir, fileName);
+-
+-      // Download file from Telegram
+-      const fileStream = bot.getFileStream(fileId);
+-      const writeStream = fs.createWriteStream(filePath);
+-
+-      await new Promise((resolve: any, reject) => {
+-        fileStream.pipe(writeStream);
+-        writeStream.on("finish", resolve);
+-        writeStream.on("error", reject);
+-        fileStream.on("error", reject);
+-      });
+-
+-      // Get file stats
+-      const stats = await fs.stat(filePath);
+-
+-      this.logger.info("Photo saved successfully:", {
+-        telegramId,
+-        photoType,
+-        fileName,
+-        fileSize: stats.size,
+-      });
+-
+-      return {
+-        filePath: filePath,
+-        fileName: fileName,
+-        fileSize: stats.size,
+-      };
+-    } catch (error) {
+-      this.logger.error("Error downloading and saving photo:", {
+-        telegramId,
+-        photoType,
+-        fileId,
+-        error,
+-      });
+-      throw error;
+-    }
+-  }
+-
+-  public async deletePhoto(filePath: string): Promise<void> {
+-    try {
+-      await fs.remove(filePath);
+-      this.logger.info("Photo deleted:", {filePath});
+-    } catch (error) {
+-      this.logger.error("Error deleting photo:", {filePath, error});
+-      // Don't throw error for file deletion failures
+-    }
+-  }
+-
+-  public async getUserPhotos(telegramId: number): Promise<string[]> {
+-    try {
+-      const userDir = path.join(this.uploadPath, telegramId.toString());
+-
+-      if (!(await fs.pathExists(userDir))) {
+-        return [];
+-      }
+-
+-      const files = await fs.readdir(userDir);
+-      return files.map((file: any) => path.join(userDir, file));
+-    } catch (error) {
+-      this.logger.error("Error getting user photos:", {telegramId, error});
+-      return [];
+-    }
+-  }
+-}
+diff --git a/src/services/PdfService.ts b/src/services/PdfService.ts
+index a57b7e4..0113cc8 100644
+--- a/src/services/PdfService.ts
++++ b/src/services/PdfService.ts
+@@ -3,13 +3,16 @@ import path from "path";
+ import fs from "fs-extra";
+ import {KYCApplication, KYCPhoto} from "../types";
+ import {Logger} from "../config/logger";
++import {CDNService} from "./CDNService";
++import {v4 as uuidv4} from "uuid";
+ 
+ export class PDFService {
+   private logger = Logger.getInstance();
+   private outputPath: string;
++  private cdnService = new CDNService();
+ 
+   constructor() {
+-    this.outputPath = process.env.PDF_OUTPUT_PATH || "public/pdfs";
++    this.outputPath = process.env.PDF_OUTPUT_PATH || "temp/pdfs";
+   }
+ 
+   public async generateKYCPDF(
+@@ -24,23 +27,28 @@ export class PDFService {
+       const html = this.generateHTMLTemplate(application, photos);
+       await page.setContent(html, {waitUntil: "networkidle0"});
+ 
+-      const fileName = `kyc_${application.id}_${Date.now()}.pdf`;
+-      const filePath = path.join(this.outputPath, fileName);
++      const fileName = `kyc_${application.id}_${uuidv4()}.pdf`;
++      const tempPath = path.join(this.outputPath, fileName);
+ 
+       await fs.ensureDir(this.outputPath);
+ 
+       await page.pdf({
+-        path: filePath,
++        path: tempPath,
+         format: "A4",
+         margin: {top: "20px", right: "20px", bottom: "20px", left: "20px"},
+       });
+ 
+-      this.logger.info("PDF generated successfully:", {
++      const pdfUrl = await this.cdnService.uploadFile(tempPath, fileName);
++
++      await fs.remove(tempPath);
++
++      this.logger.info("PDF generated and uploaded to CDN:", {
+         applicationId: application.id,
+         fileName,
++        pdfUrl,
+       });
+ 
+-      return fileName;
++      return pdfUrl;
+     } finally {
+       await browser.close();
+     }
+@@ -155,9 +163,7 @@ export class PDFService {
+                 ${photosByType.location_photos
+                   .map(
+                     (photo) =>
+-                      `<img src="file://${path.resolve(
+-                        photo.file_path
+-                      )}" class="photo" alt="Foto Lokasi">`
++                      `<img src="${photo.file_url}" class="photo" alt="Foto Lokasi">`
+                   )
+                   .join("")}
+               </div>
+@@ -170,9 +176,7 @@ export class PDFService {
+                 ? `
+               <div class="photo-container">
+                 <strong>Foto Buku Rekening:</strong><br>
+-                <img src="file://${path.resolve(
+-                  photosByType.bank_book[0].file_path
+-                )}" class="photo" alt="Foto Buku Rekening">
++                <img src="${photosByType.bank_book[0].file_url}" class="photo" alt="Foto Buku Rekening">
+               </div>
+             `
+                 : ""
+@@ -183,22 +187,7 @@ export class PDFService {
+                 ? `
+               <div class="photo-container">
+                 <strong>Foto KTP:</strong><br>
+-                <img src="file://${path.resolve(
+-                  photosByType.id_card[0].file_path
+-                )}" class="photo" alt="Foto KTP">
+-              </div>
+-            `
+-                : ""
+-            }
+-            
+-            ${
+-              photosByType.signature?.[0]
+-                ? `
+-              <div class="photo-container">
+-                <strong>Foto Tanda Tangan:</strong><br>
+-                <img src="file://${path.resolve(
+-                  photosByType.signature[0].file_path
+-                )}" class="photo" alt="Foto Tanda Tangan">
++                <img src="${photosByType.id_card[0].file_url}" class="photo" alt="Foto KTP">
+               </div>
+             `
+                 : ""
+diff --git a/src/services/SessionServices.ts b/src/services/SessionServices.ts
+index d7dd265..7887d45 100644
+--- a/src/services/SessionServices.ts
++++ b/src/services/SessionServices.ts
+@@ -110,8 +110,8 @@ export class SessionService {
+                  (telegram_id, username, first_name, last_name, agent_name, agent_address, 
+                   owner_name, business_field, pic_name, pic_phone, id_card_number, tax_number,
+                   account_holder_name, bank_name, account_number, signature_initial, 
+-                  signature_photo_path, confirm_date, status)
+-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, CURRENT_TIMESTAMP, 'draft')
++                  confirm_date, status)
++                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, CURRENT_TIMESTAMP, 'draft')
+                  RETURNING id`,
+         [
+           session.telegram_id,
+@@ -130,7 +130,6 @@ export class SessionService {
+           session.form_data.bank_name,
+           session.form_data.account_number,
+           session.form_data.signature_initial,
+-          session.form_data.signature_photo || null,
+         ]
+       );
+ 
+@@ -139,12 +138,12 @@ export class SessionService {
+       const photos = [];
+ 
+       if (session.form_data.location_photos) {
+-        for (const photoPath of session.form_data.location_photos) {
++        for (const photoUrl of session.form_data.location_photos) {
+           photos.push({
+             application_id: applicationId,
+             photo_type: "location_photos",
+-            file_path: photoPath,
+-            file_name: photoPath.split("/").pop() || "",
++            file_url: photoUrl,
++            file_name: photoUrl.split("/").pop() || "",
+           });
+         }
+       }
+@@ -153,7 +152,7 @@ export class SessionService {
+         photos.push({
+           application_id: applicationId,
+           photo_type: "bank_book",
+-          file_path: session.form_data.bank_book_photo,
++          file_url: session.form_data.bank_book_photo,
+           file_name: session.form_data.bank_book_photo.split("/").pop() || "",
+         });
+       }
+@@ -162,28 +161,19 @@ export class SessionService {
+         photos.push({
+           application_id: applicationId,
+           photo_type: "id_card",
+-          file_path: session.form_data.id_card_photo,
++          file_url: session.form_data.id_card_photo,
+           file_name: session.form_data.id_card_photo.split("/").pop() || "",
+         });
+       }
+ 
+-      if (session.form_data.signature_photo) {
+-        photos.push({
+-          application_id: applicationId,
+-          photo_type: "signature",
+-          file_path: session.form_data.signature_photo,
+-          file_name: session.form_data.signature_photo.split("/").pop() || "",
+-        });
+-      }
+-
+       for (const photo of photos) {
+         await dbClient.query(
+-          `INSERT INTO kyc_photos (application_id, photo_type, file_path, file_name)
++          `INSERT INTO kyc_photos (application_id, photo_type, file_url, file_name)
+                      VALUES ($1, $2, $3, $4)`,
+           [
+             photo.application_id,
+             photo.photo_type,
+-            photo.file_path,
++            photo.file_url,
+             photo.file_name,
+           ]
+         );
+@@ -240,9 +230,7 @@ export class SessionService {
+       return SessionStep.LOCATION_PHOTOS;
+     if (!formData.bank_book_photo) return SessionStep.BANK_BOOK_PHOTO;
+     if (!formData.id_card_photo) return SessionStep.ID_CARD_PHOTO;
+-    if (formData.signature_photo === undefined)
+-      return SessionStep.SIGNATURE_PHOTO;
+-    return SessionStep.CONFIRMATION;
++    return SessionStep.TERMS_CONDITIONS;
+   }
+ 
+   public async getApplicationPhotos(
+diff --git a/src/types/index.ts b/src/types/index.ts
+index 940bdf0..d605245 100644
+--- a/src/types/index.ts
++++ b/src/types/index.ts
+@@ -17,7 +17,6 @@ export interface KYCApplication {
+   first_name?: string;
+   last_name?: string;
+ 
+-  // Form fields
+   agent_name: string;
+   agent_address: string;
+   owner_name: string;
+@@ -25,15 +24,13 @@ export interface KYCApplication {
+   pic_name: string;
+   pic_phone: string;
+   id_card_number: string;
+-  tax_number?: string; // Optional NPWP
++  tax_number?: string;
+   account_holder_name: string;
+   bank_name: string;
+   account_number: string;
+ 
+-  // System fields
+   confirm_date?: Date;
+   signature_initial: string;
+-  signature_photo_path?: string;
+   status: "draft" | "confirmed" | "rejected";
+   remark?: string;
+   pdf_url?: string;
+@@ -45,8 +42,8 @@ export interface KYCApplication {
+ export interface KYCPhoto {
+   id?: number;
+   application_id: number;
+-  photo_type: "location_photos" | "bank_book" | "id_card" | "signature";
+-  file_path: string;
++  photo_type: "location_photos" | "bank_book" | "id_card";
++  file_url: string;
+   file_name: string;
+   file_size?: number;
+   uploaded_at?: Date;
+@@ -65,17 +62,15 @@ export interface FormData {
+   bank_name?: string;
+   account_number?: string;
+   signature_initial?: string;
+-  location_photos?: string[]; // Array of file paths
++  location_photos?: string[];
+   bank_book_photo?: string;
+   id_card_photo?: string;
+-  signature_photo?: string;
+ }
+ 
+ export enum SessionStep {
+   MENU = "menu",
+   REGISTRATION_START = "registration_start",
+ 
+-  // Text inputs
+   AGENT_NAME = "agent_name",
+   AGENT_ADDRESS = "agent_address",
+   OWNER_NAME = "owner_name",
+@@ -89,12 +84,11 @@ export enum SessionStep {
+   ACCOUNT_NUMBER = "account_number",
+   SIGNATURE_INITIAL = "signature_initial",
+ 
+-  // Photo uploads
+   LOCATION_PHOTOS = "location_photos",
+   BANK_BOOK_PHOTO = "bank_book_photo",
+   ID_CARD_PHOTO = "id_card_photo",
+-  SIGNATURE_PHOTO = "signature_photo",
+ 
++  TERMS_CONDITIONS = "terms_conditions",
+   CONFIRMATION = "confirmation",
+ }
+ 
+@@ -119,39 +113,6 @@ export interface RejectRequest {
+   remark: string;
+ }
+ 
+-export interface KYCApplication {
+-  id?: number;
+-  telegram_id: number;
+-  username?: string;
+-  first_name?: string;
+-  last_name?: string;
+-
+-  // Form fields
+-  agent_name: string;
+-  agent_address: string;
+-  owner_name: string;
+-  business_field: string;
+-  pic_name: string;
+-  pic_phone: string;
+-  id_card_number: string;
+-  tax_number?: string;
+-  account_holder_name: string;
+-  bank_name: string;
+-  account_number: string;
+-
+-  // System fields
+-  confirm_date?: Date;
+-  signature_initial: string;
+-  signature_photo_path?: string;
+-  status: "draft" | "confirmed" | "rejected"; // ✅ Updated
+-  remark?: string; // ✅ New
+-  pdf_url?: string; // ✅ New
+-
+-  created_at?: Date;
+-  updated_at?: Date;
+-}
+-
+-// ✅ New interface for API list response
+ export interface KYCListResponse {
+   id: number;
+   telegram_id: number;

@@ -40,7 +40,7 @@ CREATE TABLE kyc_applications (
     -- System fields
     confirm_date TIMESTAMP,
     signature_initial VARCHAR(10) NOT NULL,
-    signature_photo_path VARCHAR(500), -- Optional signature photo
+    -- Removed signature_photo_path since we're not using signature photos anymore
     status VARCHAR(20) DEFAULT 'draft' CHECK (status IN ('draft', 'confirmed', 'rejected')),
     
     remark TEXT NULL,
@@ -50,13 +50,12 @@ CREATE TABLE kyc_applications (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-
--- Photos storage
+-- Photos storage (using CDN URLs now)
 CREATE TABLE kyc_photos (
     id SERIAL PRIMARY KEY,
     application_id INTEGER REFERENCES kyc_applications(id) ON DELETE CASCADE,
-    photo_type VARCHAR(50) NOT NULL, -- location_photos, bank_book, id_card, signature
-    file_path VARCHAR(500) NOT NULL,
+    photo_type VARCHAR(50) NOT NULL, -- location_photos, bank_book, id_card (removed signature)
+    file_path VARCHAR(500) NOT NULL, -- This will store CDN URLs now
     file_name VARCHAR(200) NOT NULL,
     file_size INTEGER,
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -81,15 +80,13 @@ INSERT INTO banks (name) VALUES
 ('Bank Mega'),
 ('Bank OCBC NISP');
 
-
 -- Indexes
 CREATE INDEX idx_active_sessions_telegram_id ON active_sessions(telegram_id);
--- CREATE INDEX idx_kyc_applications_telegram_id ON kyc_applications(telegram_id);
 CREATE INDEX idx_kyc_applications_id_card ON kyc_applications(id_card_number);
 CREATE INDEX idx_kyc_applications_status ON kyc_applications(status);
 CREATE INDEX idx_kyc_photos_application_id ON kyc_photos(application_id);
 CREATE INDEX idx_kyc_photos_type ON kyc_photos(photo_type);
 
--- Add constraints
+-- Add constraints (updated to remove signature)
 ALTER TABLE kyc_photos ADD CONSTRAINT check_photo_type 
-CHECK (photo_type IN ('location_photos', 'bank_book', 'id_card', 'signature'));
+CHECK (photo_type IN ('location_photos', 'bank_book', 'id_card'));

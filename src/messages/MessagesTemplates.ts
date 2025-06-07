@@ -55,6 +55,8 @@ Status: ${statusText}
 🔸 Command Konfirmasi:
 /ya - ✅ Konfirmasi pendaftaran
 /tidak - ❌ Ulangi pendaftaran
+/setuju - ✅ Setuju syarat & ketentuan
+/tolak - ❌ Tolak syarat & ketentuan
 /skip - ⏭️ Lewati (untuk field opsional)
 
 📋 Form KYC meliputi:
@@ -63,7 +65,8 @@ Status: ${statusText}
 3. Data Bank & Rekening
 4. Upload Foto Lokasi (1-4 foto)
 5. Upload Foto Dokumen (KTP, Buku Rekening)
-6. Tanda Tangan
+6. Tanda Tangan Inisial
+7. Syarat & Ketentuan
 
 💡 Tips:
 - Pastikan foto jelas dan terbaca
@@ -82,7 +85,7 @@ Status: ${statusText}
   public generateStartRegistrationMessage(): string {
     return `✏️ Mulai Pendaftaran KYC
 
-📝 Langkah 1/16: Nama Agen
+📝 Langkah 1/15: Nama Agen
 
 Silakan masukkan nama agen:
 
@@ -90,6 +93,11 @@ Silakan masukkan nama agen:
   }
 
   public generateContinueRegistrationMessage(nextStep: string): string {
+    // Special handling for terms and conditions
+    if (nextStep === "terms_conditions") {
+      return this.generateTermsConditionsMessage();
+    }
+
     const stepTexts: {[key: string]: string} = {
       agent_name: "nama agen",
       agent_address: "alamat agen",
@@ -107,18 +115,17 @@ Silakan masukkan nama agen:
         "foto lokasi (nama toko, tampak depan, samping dan dalam)",
       bank_book_photo: "foto buku rekening halaman pertama",
       id_card_photo: "foto KTP",
-      signature_photo: "foto tanda tangan (opsional, ketik /skip untuk lewati)",
     };
 
     const stepNumber = this.getStepNumber(nextStep);
 
     return `⏩ Melanjutkan pendaftaran KYC...
-
-📝 Langkah ${stepNumber}/16: ${stepTexts[nextStep] || nextStep}
-
-Silakan masukkan ${stepTexts[nextStep] || nextStep}:
-
-/menu - 🏠 Kembali ke menu utama`;
+  
+  📝 Langkah ${stepNumber}/15: ${stepTexts[nextStep] || nextStep}
+  
+  Silakan masukkan ${stepTexts[nextStep] || nextStep}:
+  
+  /menu - 🏠 Kembali ke menu utama`;
   }
 
   private getStepNumber(step: string): number {
@@ -138,7 +145,7 @@ Silakan masukkan ${stepTexts[nextStep] || nextStep}:
       location_photos: 13,
       bank_book_photo: 14,
       id_card_photo: 15,
-      signature_photo: 16,
+      terms_conditions: 16,
     };
     return stepNumbers[step] || 0;
   }
@@ -187,7 +194,7 @@ Silakan masukkan ${stepTexts[nextStep] || nextStep}:
     let message = `✅ ${fieldNames[field]}: ${value}\n\n`;
 
     if (nextField && nextFieldTexts[nextField]) {
-      message += `📝 Langkah ${nextStep}/16: ${nextFieldTexts[nextField]}\n\n`;
+      message += `📝 Langkah ${nextStep}/15: ${nextFieldTexts[nextField]}\n\n`;
       message += `Silakan masukkan ${nextFieldTexts[nextField]}:\n\n`;
     }
 
@@ -204,7 +211,6 @@ Silakan masukkan ${stepTexts[nextStep] || nextStep}:
       location_photos: "Foto Lokasi",
       bank_book_photo: "Foto Buku Rekening",
       id_card_photo: "Foto KTP",
-      signature_photo: "Foto Tanda Tangan",
     };
 
     let message = `✅ ${photoNames[photoType]} berhasil diunggah!`;
@@ -224,8 +230,7 @@ Silakan masukkan ${stepTexts[nextStep] || nextStep}:
     const nextSteps: {[key: string]: string} = {
       location_photos: "foto buku rekening halaman pertama",
       bank_book_photo: "foto KTP",
-      id_card_photo: "foto tanda tangan (opsional, ketik /skip untuk lewati)",
-      signature_photo: "konfirmasi data",
+      id_card_photo: "syarat dan ketentuan",
     };
 
     if (
@@ -242,12 +247,29 @@ Silakan masukkan ${stepTexts[nextStep] || nextStep}:
   public generateSkipMessage(field: string): string {
     const fieldNames: {[key: string]: string} = {
       tax_number: "Nomor NPWP",
-      signature_photo: "Foto Tanda Tangan",
     };
 
     return `⏭️ ${fieldNames[field]} dilewati.
 
 /menu - 🏠 Kembali ke menu utama`;
+  }
+
+  public generateTermsConditionsMessage(): string {
+    return `📋 Syarat dan Ketentuan
+  
+  Dengan melanjutkan pendaftaran KYC ini, Anda menyetujui:
+  
+  1. Data yang saya berikan adalah benar dan akurat
+  2. Saya bertanggung jawab atas kebenaran data yang diberikan
+  3. Data saya akan digunakan untuk proses verifikasi KYC
+  4. Perusahaan berhak menolak aplikasi jika data tidak valid
+  5. Data saya akan disimpan sesuai kebijakan privasi perusahaan
+  
+  Apakah Anda menyetujui syarat dan ketentuan di atas?
+  
+  /setuju - ✅ Setuju dan lanjutkan
+  /tidaksetuju - ❌ Tidak setuju (batalkan pendaftaran)
+  /menu - 🏠 Kembali ke menu utama`;
   }
 
   public generateConfirmationMessage(formData: any): string {
@@ -274,7 +296,6 @@ Silakan masukkan ${stepTexts[nextStep] || nextStep}:
 
 ✍️ **TANDA TANGAN**
 - Inisial: ${formData.signature_initial}
-- Foto Tanda Tangan: ${formData.signature_photo ? "Ada" : "Tidak ada"}
 
 📷 **DOKUMEN FOTO**
 - Foto Lokasi: ${formData.location_photos?.length || 0} foto
@@ -334,7 +355,6 @@ Terima kasih telah melengkapi data KYC! 🙏`;
 
 ✍️ **TANDA TANGAN**
 - Inisial: ${application.signature_initial}
-- Foto Tanda Tangan: ${application.signature_photo_path ? "Ada" : "Tidak ada"}
 
 ${statusIcon} **Status**: ${statusText}
 📅 **Terdaftar**: ${new Date(application.created_at).toLocaleDateString(
@@ -346,7 +366,6 @@ ${statusIcon} **Status**: ${statusText}
         location_photos: 0,
         bank_book: 0,
         id_card: 0,
-        signature: 0,
       };
 
       photos.forEach((photo) => {
@@ -362,9 +381,6 @@ ${statusIcon} **Status**: ${statusText}
       }`;
       message += `\n• Foto KTP: ${
         photoCount.id_card > 0 ? "Ada" : "Tidak ada"
-      }`;
-      message += `\n• Foto Tanda Tangan: ${
-        photoCount.signature > 0 ? "Ada" : "Tidak ada"
       }`;
     }
 
@@ -401,7 +417,6 @@ Gunakan command:
     return "❌ Tidak ada sesi konfirmasi aktif. Ketik /daftar untuk memulai pendaftaran.";
   }
 
-  // Validation error messages
   public generateFieldValidationError(field: string): string {
     const errorMessages: {[key: string]: string} = {
       agent_name: "Nama agen harus minimal 3 karakter",
@@ -438,7 +453,6 @@ Gunakan command:
       location_photos: "foto lokasi",
       bank_book_photo: "foto buku rekening",
       id_card_photo: "foto KTP",
-      signature_photo: "foto tanda tangan",
     };
 
     return `❌ Silakan kirim ${photoNames[photoType]} dalam format foto (JPG, PNG).
@@ -474,27 +488,29 @@ Anda dapat mendaftar ulang dengan data yang benar.
 /menu - 🏠 Menu Utama
 /help - ❓ Bantuan`;
   }
+
   public async generateBankSelectionMessage(): Promise<string> {
     try {
-      const banks = await this.bankService.getAllBanks();
-      const bankOptions = banks.map((bank) => `/${bank}`).join("\n");
+      const bankCommands = await this.bankService.getBankCommands();
+      const bankOptions = bankCommands
+        .map((bank) => `/${bank.command} - ${bank.name}`)
+        .join("\n");
 
       return `🏦 *Pilih Bank*
+  
+  Silakan pilih bank Anda dengan mengetik command:
 
-Silakan pilih bank Anda dengan mengetik:
-
-${bankOptions}
-
-Ketik sesuai format di atas (dengan tanda /)`;
+${bankOptions}`;
     } catch (error) {
       return `🏦 *Pilih Bank*
-
-Silakan ketik nama bank Anda dengan format:
-/Bank Central Asia
-/Bank Mandiri
-dst.
-
-(Format: /NamaBank)`;
+  
+  Silakan ketik nama bank Anda dengan format:
+  /BankCentralAsia
+  /BankMandiri
+  /BankNegara Indonesia
+  dst.
+  
+  (Format: /NamaBankTanpaSpasi)`;
     }
   }
 }

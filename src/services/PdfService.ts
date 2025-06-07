@@ -1,16 +1,11 @@
 import puppeteer from "puppeteer";
-import path from "path";
-import fs from "fs-extra";
 import {KYCApplication, KYCPhoto} from "../types";
 import {Logger} from "../config/logger";
+import {CDNService} from "./CDNService";
 
 export class PDFService {
   private logger = Logger.getInstance();
-  private outputPath: string;
-
-  constructor() {
-    this.outputPath = process.env.PDF_OUTPUT_PATH || "public/pdfs";
-  }
+  private cdnService = new CDNService();
 
   public async generateKYCPDF(
     application: KYCApplication,
@@ -25,22 +20,26 @@ export class PDFService {
       await page.setContent(html, {waitUntil: "networkidle0"});
 
       const fileName = `kyc_${application.id}_${Date.now()}.pdf`;
-      const filePath = path.join(this.outputPath, fileName);
 
-      await fs.ensureDir(this.outputPath);
-
-      await page.pdf({
-        path: filePath,
+      const pdfBuffer = await page.pdf({
         format: "A4",
-        margin: {top: "20px", right: "20px", bottom: "20px", left: "20px"},
+        margin: {top: "15mm", right: "15mm", bottom: "15mm", left: "15mm"},
+        printBackground: true,
       });
 
-      this.logger.info("PDF generated successfully:", {
+      const pdfUrl = await this.cdnService.uploadFile(
+        pdfBuffer,
+        fileName,
+        "application/pdf"
+      );
+
+      this.logger.info("PDF generated and uploaded:", {
         applicationId: application.id,
         fileName,
+        pdfUrl,
       });
 
-      return fileName;
+      return pdfUrl;
     } finally {
       await browser.close();
     }
@@ -61,173 +60,457 @@ export class PDFService {
       <html>
         <head>
           <meta charset="utf-8">
-          <title>KYC Application - ${application.agent_name}</title>
+          <title>Formulir KYC - ${application.agent_name}</title>
+          <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
           <style>
-            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
-            .section { margin-bottom: 25px; }
-            .section-title { font-size: 16px; font-weight: bold; color: #333; margin-bottom: 10px; border-left: 4px solid #007bff; padding-left: 10px; }
-            .data-row { display: flex; margin-bottom: 8px; }
-            .label { font-weight: bold; width: 200px; }
-            .value { flex: 1; }
-            .photo-container { margin: 10px 0; }
-            .photo { max-width: 200px; max-height: 200px; margin: 5px; border: 1px solid #ddd; }
-            .status { padding: 5px 10px; border-radius: 5px; color: white; font-weight: bold; }
-            .status.confirmed { background-color: #28a745; }
-            .status.draft { background-color: #ffc107; color: #333; }
-            .status.rejected { background-color: #dc3545; }
+            @page {
+              size: A4;
+              margin: 15mm;
+            }
+            
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 0; 
+              padding: 0;
+              font-size: 11px;
+              line-height: 1.4;
+            }
+            
+            .page {
+              page-break-after: always;
+              min-height: 90vh;
+              padding: 20px;
+            }
+            
+            .page:last-child {
+              page-break-after: avoid;
+            }
+            
+            /* PAGE 1 - FORMULIR */
+            .form-header {
+              text-align: center;
+              margin-bottom: 20px;
+              border-bottom: 2px solid #000;
+              padding-bottom: 15px;
+            }
+            
+            .form-title {
+              font-size: 14px;
+              font-weight: bold;
+              text-transform: uppercase;
+              margin: 0;
+            }
+            
+            .form-subtitle {
+              font-size: 12px;
+              margin: 5px 0 0 0;
+            }
+            
+            .section {
+              margin-bottom: 20px;
+              border: 1px solid #000;
+              padding: 10px;
+            }
+            
+            .section-title {
+              background: #000;
+              color: white;
+              padding: 5px 10px;
+              margin: -10px -10px 10px -10px;
+              font-weight: bold;
+              font-size: 12px;
+            }
+            
+            .form-row {
+              display: flex;
+              margin-bottom: 8px;
+              align-items: center;
+            }
+            
+            .form-label {
+              width: 180px;
+              font-weight: bold;
+              flex-shrink: 0;
+            }
+            
+            .form-value {
+              flex: 1;
+              border-bottom: 1px solid #000;
+              padding: 2px 5px;
+              min-height: 16px;
+            }
+            
+            .empty-box {
+              border: 1px solid #ccc;
+              height: 20px;
+              background: #f9f9f9;
+            }
+            
+            .signature-area {
+              display: flex;
+              justify-content: space-between;
+              margin-top: 30px;
+            }
+            
+            .signature-box {
+              text-align: center;
+              width: 200px;
+            }
+            
+            .signature-line {
+              border-bottom: 1px solid #000;
+              height: 60px;
+              margin-bottom: 5px;
+              display: flex;
+              align-items: flex-end;
+              justify-content: center;
+              padding-bottom: 10px;
+            }
+            
+            .signature-text {
+              font-family: 'Dancing Script', cursive;
+              font-size: 24px;
+              font-weight: bold;
+              color: #000;
+            }
+            
+            .meterai-box {
+              width: 80px;
+              height: 80px;
+              border: 2px solid #000;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 10px;
+              font-weight: bold;
+            }
+            
+            /* PAGE 2 - VERIFIKASI */
+            .checklist {
+              margin: 20px 0;
+            }
+            
+            .checklist-item {
+              display: flex;
+              align-items: center;
+              margin-bottom: 15px;
+              font-size: 12px;
+            }
+            
+            .checkbox {
+              width: 16px;
+              height: 16px;
+              border: 2px solid #000;
+              margin-right: 10px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-weight: bold;
+              font-size: 14px;
+            }
+            
+            .checkbox.checked {
+              background: #000;
+              color: white;
+            }
+            
+            /* PAGE 3 - PHOTOS */
+            .photo-section {
+              margin-bottom: 30px;
+            }
+            
+            .photo-title {
+              font-size: 14px;
+              font-weight: bold;
+              margin-bottom: 10px;
+              border-bottom: 1px solid #000;
+              padding-bottom: 5px;
+            }
+            
+            .photo-grid {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 15px;
+            }
+            
+            .photo-item {
+              max-width: 250px;
+              text-align: center;
+            }
+            
+            .photo-img {
+              width: 100%;
+              max-height: 200px;
+              object-fit: contain;
+              border: 1px solid #ddd;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            
+            .photo-caption {
+              font-size: 10px;
+              margin-top: 5px;
+              color: #666;
+            }
           </style>
         </head>
         <body>
-          <div class="header">
-            <h1>KYC Application Report</h1>
-            <p>Generated on: ${new Date().toLocaleString("id-ID")}</p>
-            <div class="status ${
-              application.status
-            }">${application.status.toUpperCase()}</div>
+          <!-- PAGE 1: FORMULIR INFORMASI AGEN -->
+          <div class="page">
+            <div class="form-header">
+              <h1 class="form-title">Formulir Informasi Agen Layanan Bersama Mudah Artajasa</h1>
+            </div>
+
+            <!-- Section 1: Informasi Agen (Badan Usaha) - KOSONG -->
+            <div class="section">
+              <div class="section-title">1. INFORMASI AGEN (BADAN USAHA)</div>
+              <div class="form-row">
+                <div class="form-label">Nama Badan Usaha:</div>
+                <div class="form-value empty-box"></div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Alamat Badan Usaha:</div>
+                <div class="form-value empty-box"></div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">NPWP Badan Usaha:</div>
+                <div class="form-value empty-box"></div>
+              </div>
+            </div>
+
+            <!-- Section 2: Perorangan - AUTO POPULATED -->
+            <div class="section">
+              <div class="section-title">2. INFORMASI PERORANGAN</div>
+              <div class="form-row">
+                <div class="form-label">Nama Agen:</div>
+                <div class="form-value">${application.agent_name}</div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Alamat Agen:</div>
+                <div class="form-value">${application.agent_address}</div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Nama Pemilik:</div>
+                <div class="form-value">${application.owner_name}</div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Bidang Usaha:</div>
+                <div class="form-value">${application.business_field}</div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Nama PIC:</div>
+                <div class="form-value">${application.pic_name}</div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Nomor Telepon PIC:</div>
+                <div class="form-value">${application.pic_phone}</div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Nomor KTP:</div>
+                <div class="form-value">${application.id_card_number}</div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Nomor NPWP:</div>
+                <div class="form-value">${application.tax_number || "-"}</div>
+              </div>
+            </div>
+
+            <!-- Section 3: Informasi Rekening -->
+            <div class="section">
+              <div class="section-title">3. INFORMASI REKENING</div>
+              <div class="form-row">
+                <div class="form-label">Nama Pemilik Rekening:</div>
+                <div class="form-value">${application.account_holder_name}</div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Nama Bank:</div>
+                <div class="form-value">${application.bank_name}</div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Nomor Rekening:</div>
+                <div class="form-value">${application.account_number}</div>
+              </div>
+            </div>
+
+            <!-- Signature Area -->
+            <div class="signature-area">
+              <div class="signature-box">
+                <div class="meterai-box">METERAI<br>10.000</div>
+                <p style="margin-top: 10px; font-size: 10px;">Meterai & Cap</p>
+              </div>
+              
+              <div class="signature-box">
+                <div class="signature-line">
+                  <span class="signature-text">${
+                    application.signature_initial
+                  }</span>
+                </div>
+                <p style="margin: 0; font-size: 10px;">Tanda Tangan Pemohon</p>
+                <p style="margin: 0; font-size: 10px;">${new Date().toLocaleDateString(
+                  "id-ID"
+                )}</p>
+              </div>
+            </div>
           </div>
 
-          <div class="section">
-            <div class="section-title">DATA AGEN & PEMILIK</div>
-            <div class="data-row"><div class="label">Nama Agen:</div><div class="value">${
-              application.agent_name
-            }</div></div>
-            <div class="data-row"><div class="label">Alamat Agen:</div><div class="value">${
-              application.agent_address
-            }</div></div>
-            <div class="data-row"><div class="label">Nama Pemilik:</div><div class="value">${
-              application.owner_name
-            }</div></div>
-            <div class="data-row"><div class="label">Bidang Usaha:</div><div class="value">${
-              application.business_field
-            }</div></div>
+          <!-- PAGE 2: VERIFIKASI DOKUMEN -->
+          <div class="page">
+            <div class="form-header">
+              <h1 class="form-title">Verifikasi Kelengkapan Dokumen</h1>
+              <p class="form-subtitle">Checklist Dokumen yang Diperlukan</p>
+            </div>
+
+            <div class="section">
+              <div class="section-title">DOKUMEN YANG HARUS DILAMPIRKAN</div>
+              
+              <div class="checklist">
+                <div class="checklist-item">
+                  <div class="checkbox checked">✓</div>
+                  <span><strong>Foto Lokasi Usaha/Agen</strong> - Minimal 2 foto yang menunjukkan lokasi dan suasana tempat usaha</span>
+                </div>
+                
+                <div class="checklist-item">
+                  <div class="checkbox checked">✓</div>
+                  <span><strong>Foto Buku Rekening/Kartu ATM</strong> - Foto halaman yang menunjukkan nama pemilik dan nomor rekening dengan jelas</span>
+                </div>
+                
+                <div class="checklist-item">
+                  <div class="checkbox checked">✓</div>
+                  <span><strong>Foto KTP Pemilik</strong> - KTP yang masih berlaku, foto harus jelas dan dapat dibaca semua informasi</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">INFORMASI PENGAJUAN</div>
+              <div class="form-row">
+                <div class="form-label">Status:</div>
+                <div class="form-value" style="color: ${
+                  application.status === "confirmed"
+                    ? "green"
+                    : application.status === "rejected"
+                    ? "red"
+                    : "orange"
+                }; font-weight: bold;">
+                  ${application.status.toUpperCase()}
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-label">Tanggal Pengajuan:</div>
+                <div class="form-value">${new Date(
+                  application.created_at!
+                ).toLocaleDateString("id-ID")}</div>
+              </div>
+              ${
+                application.confirm_date
+                  ? `
+              <div class="form-row">
+                <div class="form-label">Tanggal Konfirmasi:</div>
+                <div class="form-value">${new Date(
+                  application.confirm_date
+                ).toLocaleDateString("id-ID")}</div>
+              </div>
+              `
+                  : ""
+              }
+              ${
+                application.remark
+                  ? `
+              <div class="form-row">
+                <div class="form-label">Keterangan:</div>
+                <div class="form-value">${application.remark}</div>
+              </div>
+              `
+                  : ""
+              }
+            </div>
           </div>
 
-          <div class="section">
-            <div class="section-title">DATA PIC</div>
-            <div class="data-row"><div class="label">Nama PIC:</div><div class="value">${
-              application.pic_name
-            }</div></div>
-            <div class="data-row"><div class="label">Nomor Telepon:</div><div class="value">${
-              application.pic_phone
-            }</div></div>
-          </div>
+          <!-- PAGE 3: FOTO-FOTO -->
+          <div class="page">
+            <div class="form-header">
+              <h1 class="form-title">Lampiran Foto Dokumen</h1>
+              <p class="form-subtitle">Dokumentasi Pendukung Aplikasi KYC</p>
+            </div>
 
-          <div class="section">
-            <div class="section-title">DATA IDENTITAS</div>
-            <div class="data-row"><div class="label">Nomor KTP:</div><div class="value">${
-              application.id_card_number
-            }</div></div>
-            <div class="data-row"><div class="label">Nomor NPWP:</div><div class="value">${
-              application.tax_number || "Tidak diisi"
-            }</div></div>
-          </div>
-
-          <div class="section">
-            <div class="section-title">DATA REKENING</div>
-            <div class="data-row"><div class="label">Nama Pemilik Rekening:</div><div class="value">${
-              application.account_holder_name
-            }</div></div>
-            <div class="data-row"><div class="label">Nama Bank:</div><div class="value">${
-              application.bank_name
-            }</div></div>
-            <div class="data-row"><div class="label">Nomor Rekening:</div><div class="value">${
-              application.account_number
-            }</div></div>
-          </div>
-
-          <div class="section">
-            <div class="section-title">TANDA TANGAN</div>
-            <div class="data-row"><div class="label">Inisial:</div><div class="value">${
-              application.signature_initial
-            }</div></div>
-          </div>
-
-          <div class="section">
-            <div class="section-title">DOKUMEN FOTO</div>
             ${
-              photosByType.location_photos
+              photosByType.location_photos &&
+              photosByType.location_photos.length > 0
                 ? `
-              <div class="photo-container">
-                <strong>Foto Lokasi (${
-                  photosByType.location_photos.length
-                }):</strong><br>
+            <div class="photo-section">
+              <div class="photo-title">📍 FOTO LOKASI USAHA (${
+                photosByType.location_photos.length
+              } foto)</div>
+              <div class="photo-grid">
                 ${photosByType.location_photos
                   .map(
-                    (photo) =>
-                      `<img src="file://${path.resolve(
-                        photo.file_path
-                      )}" class="photo" alt="Foto Lokasi">`
+                    (photo, index) => `
+                  <div class="photo-item">
+                    <img src="${
+                      photo.file_path
+                    }" class="photo-img" alt="Foto Lokasi ${index + 1}">
+                    <div class="photo-caption">Foto Lokasi ${index + 1}</div>
+                  </div>
+                `
                   )
                   .join("")}
               </div>
+            </div>
             `
                 : ""
             }
-            
-            ${
-              photosByType.bank_book?.[0]
-                ? `
-              <div class="photo-container">
-                <strong>Foto Buku Rekening:</strong><br>
-                <img src="file://${path.resolve(
-                  photosByType.bank_book[0].file_path
-                )}" class="photo" alt="Foto Buku Rekening">
-              </div>
-            `
-                : ""
-            }
-            
-            ${
-              photosByType.id_card?.[0]
-                ? `
-              <div class="photo-container">
-                <strong>Foto KTP:</strong><br>
-                <img src="file://${path.resolve(
-                  photosByType.id_card[0].file_path
-                )}" class="photo" alt="Foto KTP">
-              </div>
-            `
-                : ""
-            }
-            
-            ${
-              photosByType.signature?.[0]
-                ? `
-              <div class="photo-container">
-                <strong>Foto Tanda Tangan:</strong><br>
-                <img src="file://${path.resolve(
-                  photosByType.signature[0].file_path
-                )}" class="photo" alt="Foto Tanda Tangan">
-              </div>
-            `
-                : ""
-            }
-          </div>
 
-          <div class="section">
-            <div class="section-title">INFORMASI SISTEM</div>
-            <div class="data-row"><div class="label">Telegram ID:</div><div class="value">${
-              application.telegram_id
-            }</div></div>
-            <div class="data-row"><div class="label">Username:</div><div class="value">${
-              application.username || "Tidak ada"
-            }</div></div>
-            <div class="data-row"><div class="label">Tanggal Daftar:</div><div class="value">${new Date(
-              application.created_at!
-            ).toLocaleString("id-ID")}</div></div>
             ${
-              application.confirm_date
-                ? `<div class="data-row"><div class="label">Tanggal Konfirmasi:</div><div class="value">${new Date(
-                    application.confirm_date
-                  ).toLocaleString("id-ID")}</div></div>`
+              photosByType.bank_book && photosByType.bank_book.length > 0
+                ? `
+            <div class="photo-section">
+              <div class="photo-title">🏦 FOTO BUKU REKENING</div>
+              <div class="photo-grid">
+                ${photosByType.bank_book
+                  .map(
+                    (photo, index) => `
+                  <div class="photo-item">
+                    <img src="${photo.file_path}" class="photo-img" alt="Foto Buku Rekening">
+                    <div class="photo-caption">Buku Rekening - ${application.bank_name}</div>
+                  </div>
+                `
+                  )
+                  .join("")}
+              </div>
+            </div>
+            `
                 : ""
             }
+
             ${
-              application.remark
-                ? `<div class="data-row"><div class="label">Keterangan:</div><div class="value">${application.remark}</div></div>`
+              photosByType.id_card && photosByType.id_card.length > 0
+                ? `
+            <div class="photo-section">
+              <div class="photo-title">🆔 FOTO KTP</div>
+              <div class="photo-grid">
+                ${photosByType.id_card
+                  .map(
+                    (photo, index) => `
+                  <div class="photo-item">
+                    <img src="${photo.file_path}" class="photo-img" alt="Foto KTP">
+                    <div class="photo-caption">KTP - ${application.id_card_number}</div>
+                  </div>
+                `
+                  )
+                  .join("")}
+              </div>
+            </div>
+            `
                 : ""
             }
+
+            <div style="margin-top: 40px; text-align: center; font-size: 10px; color: #666;">
+              <p>Dokumen ini digenerate secara otomatis pada ${new Date().toLocaleString(
+                "id-ID"
+              )}</p>
+              <p>ID Aplikasi: ${application.id} | Telegram ID: ${
+      application.telegram_id
+    }</p>
+            </div>
           </div>
         </body>
       </html>
