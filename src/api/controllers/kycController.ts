@@ -6,6 +6,7 @@ import {PDFService} from "../../services/PdfService";
 import {Logger} from "../../config/logger";
 import path from "path";
 import fs from "fs-extra";
+import {EmeteraiService} from "../../services/EMateraiService";
 
 export class KYCController {
   private sessionService = new SessionService();
@@ -59,18 +60,18 @@ export class KYCController {
         return;
       }
 
-      // Jika sudah ada PDF, return existing URL
-      if (application.pdf_url) {
-        res.json({
-          success: true,
-          message: "PDF already exists",
-          data: {
-            pdf_url: application.pdf_url,
-            status: application.status,
-          },
-        });
-        return;
-      }
+      // // Jika sudah ada PDF, return existing URL
+      // if (application.pdf_url) {
+      //   res.json({
+      //     success: true,
+      //     message: "PDF already exists",
+      //     data: {
+      //       pdf_url: application.pdf_url,
+      //       status: application.status,
+      //     },
+      //   });
+      //   return;
+      // }
 
       const photos = await this.sessionService.getApplicationPhotos(
         parseInt(id)
@@ -234,7 +235,6 @@ export class KYCController {
   ): Promise<void> => {
     try {
       const {ids} = req.body;
-      console.log({ids});
       if (!Array.isArray(ids) || ids.length === 0) {
         res.status(400).json({
           success: false,
@@ -450,6 +450,412 @@ export class KYCController {
       res.status(500).json({
         success: false,
         message: "Failed to serve PDF",
+      });
+    }
+  };
+  public stampWithEmeterai = async (
+    req: Request,
+    res: Response<ApiResponse>
+  ): Promise<void> => {
+    try {
+      const {id} = req.params;
+      const {stamped_by} = req.body;
+
+      if (!stamped_by) {
+        res
+          .status(400)
+          .json({success: false, message: "stamped_by is required"});
+        return;
+      }
+
+      const application = await this.sessionService.getKYCApplicationById(
+        parseInt(id)
+      );
+      if (!application) {
+        res
+          .status(404)
+          .json({success: false, message: "Application not found"});
+        return;
+      }
+
+      if (application.status !== "confirmed") {
+        res.status(400).json({
+          success: false,
+          message: "Can only stamp confirmed applications",
+        });
+        return;
+      }
+
+      if (!application.pdf_url) {
+        res.status(400).json({
+          success: false,
+          message: "Can only stamp exported pdf",
+        });
+        return;
+      }
+
+      if (application.emeterai_status === "completed") {
+        res
+          .status(400)
+          .json({success: false, message: "Application already stamped"});
+        return;
+      }
+
+      const emeteraiService = new EmeteraiService();
+      await emeteraiService.processStamping(parseInt(id), stamped_by);
+
+      res.json({
+        success: true,
+        message: "E-meterai stamping completed successfully",
+        data: {id: parseInt(id), emeterai_status: "completed"},
+      });
+    } catch (error) {
+      this.logger.error("Error stamping with E-meterai:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to stamp with E-meterai",
+      });
+    }
+  };
+
+  public downloadStampedPdf = async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
+    try {
+      const {id} = req.params;
+
+      const application = await this.sessionService.getKYCApplicationById(
+        parseInt(id)
+      );
+      if (!application || !application.stamped_pdf_url) {
+        res
+          .status(404)
+          .json({success: false, message: "Stamped PDF not found"});
+        return;
+      }
+
+      if (application.emeterai_status !== "completed") {
+        res
+          .status(400)
+          .json({success: false, message: "E-meterai process not completed"});
+        return;
+      }
+
+      res.redirect(application.stamped_pdf_url);
+    } catch (error) {
+      this.logger.error("Error downloading stamped PDF:", error);
+      res
+        .status(500)
+        .json({success: false, message: "Failed to download stamped PDF"});
+    }
+  };
+
+  public getEmeteraiStatus = async (
+    req: Request,
+    res: Response<ApiResponse>
+  ): Promise<void> => {
+    try {
+      const {id} = req.params;
+
+      const application = await this.sessionService.getKYCApplicationById(
+        parseInt(id)
+      );
+      if (!application) {
+        res
+          .status(404)
+          .json({success: false, message: "Application not found"});
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: {
+          id: parseInt(id),
+          emeterai_status: application.emeterai_status,
+          emeterai_transaction_id: application.emeterai_transaction_id,
+          stamped_pdf_url: application.stamped_pdf_url,
+          stamped_by: application.stamped_by,
+          stamped_at: application.stamped_at,
+        },
+      });
+    } catch (error) {
+      this.logger.error("Error getting E-meterai status:", error);
+      res
+        .status(500)
+        .json({success: false, message: "Failed to get E-meterai status"});
+    }
+  };
+
+  public bulkStampWithEmeterai = async (
+    req: Request,
+    res: Response<ApiResponse>
+  ): Promise<void> => {
+    try {
+      const {applications} = req.body;
+
+      if (!Array.isArray(applications) || applications.length === 0) {
+        res.status(400).json({
+          success: false,
+          message: "Applications array is required",
+        });
+        return;
+      }
+
+      const results = [];
+      const errors = [];
+
+      for (const app of applications) {
+        const {id, stamped_by} = app;
+
+        if (!id || !stamped_by) {
+          errors.push({
+            id: id || "unknown",
+            error: "ID and stamped_by are required",
+          });
+          continue;
+        }
+
+        try {
+          const application = await this.sessionService.getKYCApplicationById(
+            id
+          );
+
+          if (!application) {
+            errors.push({id, error: "Application not found"});
+            continue;
+          }
+
+          if (application.status !== "confirmed") {
+            errors.push({id, error: "Application not confirmed"});
+            continue;
+          }
+
+          if (application.emeterai_status === "completed") {
+            results.push({
+              id,
+              status: "already_stamped",
+              stamped_pdf_url: application.stamped_pdf_url,
+            });
+            continue;
+          }
+
+          // Process stamping in background (non-blocking)
+          this.processStampingAsync(id, stamped_by);
+
+          results.push({
+            id,
+            status: "processing",
+            emeterai_status: "getting_token",
+          });
+        } catch (error) {
+          this.logger.error(`Error processing stamping for ID ${id}:`, error);
+          errors.push({id, error: "Stamping process failed"});
+        }
+      }
+
+      res.json({
+        success: true,
+        message: `Initiated stamping for ${results.length} applications, ${errors.length} errors`,
+        data: {
+          results,
+          errors,
+        },
+      });
+    } catch (error) {
+      this.logger.error("Error in bulk E-meterai stamping:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to process bulk E-meterai stamping",
+      });
+    }
+  };
+
+  // Helper method untuk async processing
+  private async processStampingAsync(
+    applicationId: number,
+    stampedBy: string
+  ): Promise<void> {
+    try {
+      const emeteraiService = new EmeteraiService();
+      await emeteraiService.processStamping(applicationId, stampedBy);
+
+      this.logger.info("Background stamping completed", {applicationId});
+    } catch (error) {
+      this.logger.error("Background stamping failed", {applicationId, error});
+      await this.sessionService.updateEmeteraiStatus(applicationId, "failed");
+    }
+  }
+
+  public bulkDownloadStampedPdf = async (
+    req: Request,
+    res: Response<ApiResponse>
+  ): Promise<void> => {
+    try {
+      const {ids} = req.body;
+
+      if (!Array.isArray(ids) || ids.length === 0) {
+        res.status(400).json({
+          success: false,
+          message: "IDs array is required",
+        });
+        return;
+      }
+
+      const results = [];
+      const errors = [];
+
+      for (const id of ids) {
+        try {
+          const application = await this.sessionService.getKYCApplicationById(
+            id
+          );
+
+          if (!application) {
+            errors.push({id, error: "Application not found"});
+            continue;
+          }
+
+          if (
+            application.emeterai_status !== "completed" ||
+            !application.stamped_pdf_url
+          ) {
+            errors.push({id, error: "Stamped PDF not available"});
+            continue;
+          }
+
+          results.push({
+            id,
+            stamped_pdf_url: application.stamped_pdf_url,
+            stamped_by: application.stamped_by,
+            stamped_at: application.stamped_at,
+          });
+        } catch (error) {
+          this.logger.error(`Error getting stamped PDF for ID ${id}:`, error);
+          errors.push({id, error: "Failed to get stamped PDF info"});
+        }
+      }
+
+      res.json({
+        success: true,
+        message: `Retrieved ${results.length} stamped PDFs, ${errors.length} errors`,
+        data: {
+          results,
+          errors,
+        },
+      });
+    } catch (error) {
+      this.logger.error("Error in bulk stamped PDF download:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to process bulk stamped PDF download",
+      });
+    }
+  };
+
+  public getBulkEmeteraiStatus = async (
+    req: Request,
+    res: Response<ApiResponse>
+  ): Promise<void> => {
+    try {
+      const {ids} = req.body;
+
+      if (!Array.isArray(ids) || ids.length === 0) {
+        res.status(400).json({
+          success: false,
+          message: "IDs array is required",
+        });
+        return;
+      }
+
+      const results = [];
+      const errors = [];
+
+      for (const id of ids) {
+        try {
+          const application = await this.sessionService.getKYCApplicationById(
+            id
+          );
+
+          if (!application) {
+            errors.push({id, error: "Application not found"});
+            continue;
+          }
+
+          results.push({
+            id,
+            emeterai_status: application.emeterai_status || "not_started",
+            emeterai_transaction_id: application.emeterai_transaction_id,
+            stamped_pdf_url: application.stamped_pdf_url,
+            stamped_by: application.stamped_by,
+            stamped_at: application.stamped_at,
+          });
+        } catch (error) {
+          this.logger.error(
+            `Error getting E-meterai status for ID ${id}:`,
+            error
+          );
+          errors.push({id, error: "Failed to get status"});
+        }
+      }
+
+      res.json({
+        success: true,
+        message: `Retrieved status for ${results.length} applications, ${errors.length} errors`,
+        data: {
+          results,
+          errors,
+        },
+      });
+    } catch (error) {
+      this.logger.error("Error getting bulk E-meterai status:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to get bulk E-meterai status",
+      });
+    }
+  };
+
+  public getProcessingProgress = async (
+    req: Request,
+    res: Response<ApiResponse>
+  ): Promise<void> => {
+    try {
+      const result = await this.sessionService.db.query(`
+      SELECT 
+        emeterai_status,
+        COUNT(*) as count
+      FROM kyc_applications 
+      WHERE status = 'confirmed'
+      GROUP BY emeterai_status
+    `);
+
+      const progressSummary = {
+        not_started: 0,
+        getting_token: 0,
+        converting_pdf: 0,
+        uploading_document: 0,
+        generating_sn: 0,
+        stamping: 0,
+        downloading: 0,
+        completed: 0,
+        failed: 0,
+      };
+
+      result.rows.forEach((row: any) => {
+        progressSummary[row.emeterai_status as keyof typeof progressSummary] =
+          parseInt(row.count);
+      });
+
+      res.json({
+        success: true,
+        data: progressSummary,
+      });
+    } catch (error) {
+      this.logger.error("Error getting processing progress:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to get processing progress",
       });
     }
   };

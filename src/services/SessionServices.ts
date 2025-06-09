@@ -10,7 +10,7 @@ import {
 } from "../types";
 
 export class SessionService {
-  private db = Database.getInstance();
+  public db = Database.getInstance();
   private logger = Logger.getInstance();
 
   public async getActiveSession(
@@ -255,13 +255,13 @@ export class SessionService {
 
   public async getAllKYCApplications(): Promise<KYCListResponse[]> {
     try {
-      const result = await this.db.query(
-        `SELECT *
-         FROM kyc_applications 
-         ORDER BY created_at DESC`
-      );
+      const result = await this.db.query(`
+      SELECT  *
+      FROM kyc_applications 
+      ORDER BY created_at DESC
+    `);
 
-      return result.rows;
+      return result.rows as KYCListResponse[];
     } catch (error) {
       this.logger.error("Error getting all KYC applications:", error);
       throw error;
@@ -273,13 +273,19 @@ export class SessionService {
   ): Promise<KYCApplication | null> {
     try {
       const result = await this.db.query(
-        "SELECT * FROM kyc_applications WHERE id = $1",
+        `
+      SELECT * FROM kyc_applications WHERE id = $1
+    `,
         [id]
       );
 
-      return result.rows.length > 0 ? result.rows[0] : null;
+      if (!result.rows || result.rows.length === 0) {
+        return null;
+      }
+
+      return result.rows[0] as KYCApplication;
     } catch (error) {
-      this.logger.error("Error getting KYC application by ID:", {id, error});
+      this.logger.error("Error getting KYC application by ID:", error);
       throw error;
     }
   }
@@ -413,5 +419,51 @@ export class SessionService {
       });
       throw error;
     }
+  }
+
+  public async updateEmeteraiStatus(id: number, status: string): Promise<void> {
+    await this.db.query(
+      "UPDATE kyc_applications SET emeterai_status = $1 WHERE id = $2",
+      [status, id]
+    );
+  }
+
+  public async updateEmeteraiToken(
+    id: number,
+    token: string,
+    expires: Date
+  ): Promise<void> {
+    await this.db.query(
+      "UPDATE kyc_applications SET emeterai_token = $1, emeterai_token_expires = $2 WHERE id = $3",
+      [token, expires, id]
+    );
+  }
+
+  public async updateEmeteraiTransactionId(
+    id: number,
+    transactionId: string
+  ): Promise<void> {
+    await this.db.query(
+      "UPDATE kyc_applications SET emeterai_transaction_id = $1 WHERE id = $2",
+      [transactionId, id]
+    );
+  }
+
+  public async updateEmeteraiSN(id: number, sn: string): Promise<void> {
+    await this.db.query(
+      "UPDATE kyc_applications SET emeterai_sn = $1 WHERE id = $2",
+      [sn, id]
+    );
+  }
+
+  public async updateStampedInfo(
+    id: number,
+    pdfUrl: string,
+    stampedBy: string
+  ): Promise<void> {
+    await this.db.query(
+      "UPDATE kyc_applications SET stamped_pdf_url = $1, stamped_by = $2, stamped_at = NOW() WHERE id = $3",
+      [pdfUrl, stampedBy, id]
+    );
   }
 }

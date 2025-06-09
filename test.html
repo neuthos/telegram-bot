@@ -15,196 +15,191 @@
       .signature-initials {
         font-family: "Caramel", cursive;
         font-size: 1.8em;
-        position: absolute;
-        bottom: 45px;
-        left: 80%;
-        transform: translateX(-50%) rotate(-10deg);
-        z-index: 1;
       }
 
       @media print {
         @page {
           size: A4;
-          margin: 20mm;
+          margin: 0;
         }
-
+        body {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
         .page {
-          min-height: 100vh;
+          height: 297mm; /* Fix height for print */
+          overflow: hidden; /* Hide overflow content */
           page-break-after: always;
           page-break-inside: avoid;
         }
-
         .page:last-child {
           page-break-after: avoid;
         }
       }
 
       @media screen {
+        body {
+          background-color: #d1d5db;
+        }
         .page {
-          min-height: 297mm;
           width: 210mm;
-          margin: 0 auto 20px;
+          height: 297mm; /* Match A4 height for accurate screen preview */
           box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+          margin: 20px auto;
+          overflow: hidden;
         }
       }
     </style>
   </head>
-  <body class="bg-gray-300 text-gray-800 text-sm">
-    <div class="max-w-4xl mx-auto p-5">
-      <div class="page bg-white p-6 mb-5 border border-gray-400 shadow-lg">
+  <body class="bg-gray-300 text-gray-800 text-xs">
+    <div
+      class="page bg-white p-6 border border-gray-400 flex flex-col justify-between"
+    >
+      <div>
         <div
-          class="text-center text-lg font-bold mb-4 pb-2 border-b-4 border-black"
+          class="text-center font-bold border-b border-b-2 border-black pb-2 mb-3"
         >
           FORMULIR INFORMASI AGEN LAYANAN BERSAMA MUDAH ARTAJASA
         </div>
 
-        <div
-          class="bg-black text-white font-bold text-sm px-3 py-2 mt-4 mb-3 border border-black"
-        >
+        <div class="bg-black text-white font-bold px-3 py-1 mt-2 mb-3">
           INFORMASI AGEN
         </div>
 
-        <div class="flex mb-4">
+        <div class="flex">
           <input
             type="checkbox"
             id="jenisBadanUsaha"
             name="jenisAgen"
             class="mr-3 w-4 h-4 accent-gray-800"
           />
-
           <div
-            class="grid grid-cols-[180px_1fr] gap-x-3 gap-y-2 items-center mb-4"
+            class="grid grid-cols-[130px_1fr] gap-x-3 gap-y-1 items-center w-full"
           >
-            <label for="jenisBadanUsaha" class="text-sm font-semibold"
+            <label for="jenisBadanUsaha" class="text-xs font-semibold"
               >Badan Usaha</label
             >
             <br />
-
-            <label for="namaAgenBU" class="text-xs text-left pr-3"
+            <label for="namaAgenBU" class="text-[10px] text-left pr-3"
               >Nama Agen</label
             >
             <input
               type="text"
               id="namaAgenBU"
               name="namaAgenBU"
-              class="w-full px-1 py-1 border-0 border-b border-gray-600 bg-transparent text-xs focus:outline-none focus:border-b-2 focus:border-black"
+              class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none"
             />
-
-            <label for="alamatAgenBU_1" class="text-xs text-left pr-3 mb-auto"
+            <label
+              for="alamatAgenBU_1"
+              class="text-[10px] text-left pr-3 self-start"
               >Alamat Agen</label
             >
-            <div class="">
+            <div>
               <input
                 type="text"
                 id="alamatAgenBU_1"
                 name="alamatAgenBU_1"
-                class="w-full px-1 py-1 border-0 border-b border-gray-600 bg-transparent text-xs focus:outline-none focus:border-b-2 focus:border-black"
+                class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none"
               />
               <input
                 type="text"
                 id="alamatAgenBU_2"
                 name="alamatAgenBU_2"
-                class="w-full px-1 py-1 border-0 border-b border-gray-600 bg-transparent text-xs focus:outline-none focus:border-b-2 focus:border-black"
+                class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none"
               />
               <input
                 type="text"
                 id="alamatAgenBU_3"
                 name="alamatAgenBU_3"
-                class="w-full px-1 py-1 border-0 border-b border-gray-600 bg-transparent text-xs focus:outline-none focus:border-b-2 focus:border-black"
+                class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none"
               />
             </div>
-
-            <label for="namaBadanUsaha" class="text-xs text-left pr-3"
+            <label for="namaBadanUsaha" class="text-[10px] text-left pr-3"
               >Nama Badan Usaha</label
             >
             <input
               type="text"
               id="namaBadanUsaha"
               name="namaBadanUsaha"
-              class="w-full px-1 py-1 border-0 border-b border-gray-600 bg-transparent text-xs focus:outline-none focus:border-b-2 focus:border-black"
+              class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none"
             />
-
-            <label for="namaDirektur" class="text-xs text-left pr-3"
+            <label for="namaDirektur" class="text-[10px] text-left pr-3"
               >Nama Direktur</label
             >
             <input
               type="text"
               id="namaDirektur"
               name="namaDirektur"
-              class="w-full px-1 py-1 border-0 border-b border-gray-600 bg-transparent text-xs focus:outline-none focus:border-b-2 focus:border-black"
+              class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none"
             />
-
-            <label for="alamatBadanUsaha" class="text-xs text-left pr-3 mb-auto"
+            <label
+              for="alamatBadanUsaha"
+              class="text-[10px] text-left pr-3 self-start"
               >Alamat Badan Usaha</label
             >
-            <div class="">
+            <div>
               <input
                 type="text"
                 id="alamatBadanUsaha_1"
                 name="alamatBadanUsaha_1"
-                class="w-full px-1 py-1 border-0 border-b border-gray-600 bg-transparent text-xs focus:outline-none focus:border-b-2 focus:border-black"
+                class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none"
               />
               <input
                 type="text"
                 id="alamatBadanUsaha_2"
                 name="alamatBadanUsaha_2"
-                class="w-full px-1 py-1 border-0 border-b border-gray-600 bg-transparent text-xs focus:outline-none focus:border-b-2 focus:border-black"
+                class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none"
               />
             </div>
-
-            <label for="bidangUsahaBU" class="text-xs text-left pr-3"
+            <label for="bidangUsahaBU" class="text-[10px] text-left pr-3"
               >Bidang Usaha</label
             >
             <input
               type="text"
               id="bidangUsahaBU"
               name="bidangUsahaBU"
-              class="w-full px-1 py-1 border-0 border-b border-gray-600 bg-transparent text-xs focus:outline-none focus:border-b-2 focus:border-black"
+              class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none"
             />
-
-            <label for="namaPICBU" class="text-xs text-left pr-3"
+            <label for="namaPICBU" class="text-[10px] text-left pr-3"
               >Nama PIC</label
             >
             <input
               type="text"
               id="namaPICBU"
               name="namaPICBU"
-              class="w-full px-1 py-1 border-0 border-b border-gray-600 bg-transparent text-xs focus:outline-none focus:border-b-2 focus:border-black"
+              class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none"
             />
-
-            <label for="telPICBU" class="text-xs text-left pr-3"
+            <label for="telPICBU" class="text-[10px] text-left pr-3"
               >No. Telp / No. Hp PIC</label
             >
             <input
               type="text"
               id="telPICBU"
               name="telPICBU"
-              class="w-full px-1 py-1 border-0 border-b border-gray-600 bg-transparent text-xs focus:outline-none focus:border-b-2 focus:border-black"
+              class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none"
             />
-
-            <label for="ktpDirektur" class="text-xs text-left pr-3"
+            <label for="ktpDirektur" class="text-[10px] text-left pr-3"
               >No. KTP Direktur</label
             >
             <input
               type="text"
               id="ktpDirektur"
               name="ktpDirektur"
-              class="w-full px-1 py-1 border-0 border-b border-gray-600 bg-transparent text-xs focus:outline-none focus:border-b-2 focus:border-black"
+              class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none"
             />
-
-            <label for="npwpBadanUsaha" class="text-xs text-left pr-3"
+            <label for="npwpBadanUsaha" class="text-[10px] text-left pr-3"
               >No. NPWP Badan Usaha</label
             >
             <input
               type="text"
               id="npwpBadanUsaha"
               name="npwpBadanUsaha"
-              class="w-full px-1 py-1 border-0 border-b border-gray-600 bg-transparent text-xs focus:outline-none focus:border-b-2 focus:border-black"
+              class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none"
             />
           </div>
         </div>
 
-        <div class="flex mb-4">
+        <div class="flex mt-3">
           <input
             type="checkbox"
             id="jenisPerorangan"
@@ -212,16 +207,14 @@
             checked
             class="mr-3 w-4 h-4 accent-gray-800"
           />
-
           <div
-            class="grid grid-cols-[180px_1fr] gap-x-3 gap-y-2 items-center mb-4"
+            class="grid grid-cols-[130px_1fr] gap-x-3 gap-y-1 items-center w-full"
           >
-            <label for="jenisPerorangan" class="text-sm font-semibold"
+            <label for="jenisPerorangan" class="text-xs font-semibold"
               >Perorangan</label
             >
             <br />
-
-            <label for="namaAgenP" class="text-xs text-left pr-3"
+            <label for="namaAgenP" class="text-[10px] text-left pr-3"
               >Nama Agen</label
             >
             <input
@@ -229,37 +222,37 @@
               id="namaAgenP"
               name="namaAgenP"
               value="Vifa CELL"
-              class="w-full px-1 py-1 border-0 border-b border-gray-600 bg-transparent text-xs focus:outline-none focus:border-b-2 focus:border-black"
+              class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none"
             />
-
-            <label for="alamatAgenP_1" class="text-xs text-left pr-3 mb-auto"
+            <label
+              for="alamatAgenP_1"
+              class="text-[10px] text-left pr-3 self-start"
               >Alamat Agen</label
             >
-            <div class="">
+            <div>
               <input
                 type="text"
                 id="alamatAgenP_1"
                 name="alamatAgenP_1"
                 value="Jalan beringin Utara, Ternate baru"
-                class="w-full px-1 py-1 border-0 border-b border-gray-600 bg-transparent text-xs focus:outline-none focus:border-b-2 focus:border-black"
+                class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none"
               />
               <input
                 type="text"
                 id="alamatAgenP_2"
                 name="alamatAgenP_2"
                 value="Kec. SingkIL, Kota Sulawesi Utara"
-                class="w-full px-1 py-1 border-0 border-b border-gray-600 bg-transparent text-xs focus:outline-none focus:border-b-2 focus:border-black"
+                class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none"
               />
               <input
                 type="text"
                 id="alamatAgenP_3"
                 name="alamatAgenP_3"
                 value="RT 001, RW 002, Kode pos 95232"
-                class="w-full px-1 py-1 border-0 border-b border-gray-600 bg-transparent text-xs focus:outline-none focus:border-b-2 focus:border-black"
+                class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none"
               />
             </div>
-
-            <label for="namaPemilikP" class="text-xs text-left pr-3"
+            <label for="namaPemilikP" class="text-[10px] text-left pr-3"
               >Nama Pemilik</label
             >
             <input
@@ -267,10 +260,9 @@
               id="namaPemilikP"
               name="namaPemilikP"
               value="Asnawi Stone"
-              class="w-full px-1 py-1 border-0 border-b border-gray-600 bg-transparent text-xs focus:outline-none focus:border-b-2 focus:border-black"
+              class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none"
             />
-
-            <label for="bidangUsahaP" class="text-xs text-left pr-3"
+            <label for="bidangUsahaP" class="text-[10px] text-left pr-3"
               >Bidang Usaha</label
             >
             <input
@@ -278,10 +270,9 @@
               id="bidangUsahaP"
               name="bidangUsahaP"
               value="Toko Kelontong"
-              class="w-full px-1 py-1 border-0 border-b border-gray-600 bg-transparent text-xs focus:outline-none focus:border-b-2 focus:border-black"
+              class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none"
             />
-
-            <label for="namaPICP" class="text-xs text-left pr-3"
+            <label for="namaPICP" class="text-[10px] text-left pr-3"
               >Nama PIC</label
             >
             <input
@@ -289,10 +280,9 @@
               id="namaPICP"
               name="namaPICP"
               value="Asnawi Stone"
-              class="w-full px-1 py-1 border-0 border-b border-gray-600 bg-transparent text-xs focus:outline-none focus:border-b-2 focus:border-black"
+              class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none"
             />
-
-            <label for="telPICP" class="text-xs text-left pr-3"
+            <label for="telPICP" class="text-[10px] text-left pr-3"
               >No. Telp / No. Hp PIC</label
             >
             <input
@@ -300,10 +290,9 @@
               id="telPICP"
               name="telPICP"
               value="085240708595"
-              class="w-full px-1 py-1 border-0 border-b border-gray-600 bg-transparent text-xs focus:outline-none focus:border-b-2 focus:border-black"
+              class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none"
             />
-
-            <label for="ktpPemilikP" class="text-xs text-left pr-3"
+            <label for="ktpPemilikP" class="text-[10px] text-left pr-3"
               >No. KTP Pemilik</label
             >
             <input
@@ -311,41 +300,34 @@
               id="ktpPemilikP"
               name="ktpPemilikP"
               value="7171030308720002"
-              class="w-full px-1 py-1 border-0 border-b border-gray-600 bg-transparent text-xs focus:outline-none focus:border-b-2 focus:border-black"
+              class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none"
             />
-
-            <label for="npwpPemilikP" class="text-xs text-left pr-3"
+            <label for="npwpPemilikP" class="text-[10px] text-left pr-3"
               >No. NPWP (jika ada)</label
             >
             <input
               type="text"
               id="npwpPemilikP"
               name="npwpPemilikP"
-              class="w-full px-1 py-1 border-0 border-b border-gray-600 bg-transparent text-xs focus:outline-none focus:border-b-2 focus:border-black"
+              class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none"
             />
           </div>
         </div>
 
-        <div
-          class="bg-black text-white font-bold text-sm px-3 py-2 mt-4 mb-3 border border-black"
-        >
+        <div class="bg-black text-white font-bold px-3 py-1 my-3">
           INFORMASI REKENING
         </div>
 
-        <div class="flex mb-4">
-          <div class="mr-3 w-4 h-4 accent-gray-800">
-            <br />
-          </div>
-
+        <div class="flex">
+          <div class="mr-3 w-4 h-4"></div>
           <div
-            class="grid grid-cols-[180px_1fr] gap-x-3 gap-y-2 items-center mb-4"
+            class="grid grid-cols-[130px_1fr] gap-x-3 gap-y-1 items-center w-full"
           >
-            <label for="jenisPerorangan" class="text-sm font-semibold"
+            <label for="jenisPerorangan" class="text-xs font-semibold"
               >Rekening</label
             >
             <br />
-
-            <label for="namaPemilikRekening" class="text-xs text-left pr-3"
+            <label for="namaPemilikRekening" class="text-[10px] text-left pr-3"
               >Nama Pemilik Rekening</label
             >
             <input
@@ -353,10 +335,9 @@
               id="namaPemilikRekening"
               name="namaPemilikRekening"
               value="Asnawi sione"
-              class="w-full px-1 py-1 border-0 border-b border-gray-600 bg-transparent text-xs focus:outline-none focus:border-b-2 focus:border-black"
+              class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none"
             />
-
-            <label for="namaBank" class="text-xs text-left pr-3"
+            <label for="namaBank" class="text-[10px] text-left pr-3"
               >Nama Bank</label
             >
             <input
@@ -364,10 +345,9 @@
               id="namaBank"
               name="namaBank"
               value="BRI"
-              class="w-full px-1 py-1 border-0 border-b border-gray-600 bg-transparent text-xs focus:outline-none focus:border-b-2 focus:border-black"
+              class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none"
             />
-
-            <label for="nomorRekening" class="text-xs text-left pr-3"
+            <label for="nomorRekening" class="text-[10px] text-left pr-3"
               >Nomor Rekening</label
             >
             <input
@@ -375,12 +355,13 @@
               id="nomorRekening"
               name="nomorRekening"
               value="0689 01012420509"
-              class="w-full px-1 py-1 border-0 border-b border-gray-600 bg-transparent text-xs focus:outline-none focus:border-b-2 focus:border-black"
+              class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none"
             />
           </div>
         </div>
-
-        <p class="text-xs leading-6 mt-5 mb-5 text-justify">
+      </div>
+      <div class="mt-2 text-xs">
+        <p class="text-[10px] leading-tight text-justify mb-8">
           Dengan menandatangani Formulir Informasi Agen ini, saya menyatakan
           bahwa semua informasi yang saya berikan adalah lengkap dan benar serta
           saya sepakat untuk tunduk dan terikat pada ketentuan-ketentuan yang
@@ -390,242 +371,220 @@
           ditetapkan dari waktu ke waktu.
         </p>
 
-        <div class="mt-8 text-sm">
-          <div class="mb-2">Untuk dan atas nama Agen,</div>
-          <div class="flex flex-col items-start">
-            <div class="flex gap-2 text-left mb-4">
-              <div class="mb-1">
-                Manado, <span class="border-b border-black px-2">23</span>
-                <span class="border-b border-black px-2">Mei</span> 20<span
-                  class="border-b border-black px-2"
-                  >25</span
-                >
-              </div>
-              <div class="text-[8px]">(Tanggal Efektif)</div>
+        <div class="mb-1">Untuk dan atas nama Agen,</div>
+        <div class="flex flex-col items-start">
+          <div class="flex gap-2 text-left mb-1">
+            <div class="mb-1">
+              Manado, <span class="border-b border-black px-2">23</span>
+              <span class="border-b border-black px-2">Mei</span> 20<span
+                class="border-b border-black px-2"
+                >25</span
+              >
             </div>
-            <div class="text-center relative">
-              <div class="signature-initials">GRA</div>
-              <div class="mx-auto my-2 w-24 h-16">
-                <img
-                  src="https://placehold.co/100x70/E8E8E8/BDBDBD?text=E-Materai&font=arial"
-                  alt="E-Materai"
-                  class="w-full h-full border border-dashed border-gray-500"
-                />
-              </div>
+            <div class="text-[8px]">(Tanggal Efektif)</div>
+          </div>
+          <div class="mt-1 px-5 flex items-center justify-between w-full">
+            <div>
+              <div class="signature-initials text-center mb-1">GRA</div>
               <div class="flex">
                 <span class="text-[8px]">(</span>
-
-                <div class="text-sm text-center border-b border-black px-6">
+                <div class="text-xs text-center border-b border-black px-6">
                   John Doe
                 </div>
                 <span class="text-[8px]">)</span>
               </div>
             </div>
+            <div class="w-24 h-16">
+              <img
+                src="https://placehold.co/100x70/E8E8E8/BDBDBD?text=E-Materai&font=arial"
+                alt="E-Materai"
+                class="w-full h-full border border-dashed border-gray-500"
+              />
+            </div>
           </div>
         </div>
       </div>
+    </div>
 
-      <div class="page bg-white p-6 mb-5 border border-gray-400 shadow-lg">
-        <div
-          class="bg-black text-white font-bold text-sm px-3 py-2 mt-4 mb-3 border border-black"
-        >
-          VERIFIKASI DAN VALIDASI DOKUMEN KELENGKAPAN AGEN (DIISI OLEH MITRA) *
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-3 text-xs">
-          <div>
-            <div class="flex items-center mb-3">
-              <input
-                type="checkbox"
-                id="docKTP"
-                name="docKTP"
-                checked
-                class="mr-3 w-4 h-4 accent-gray-800"
-              />
-              <label for="docKTP">KTP</label>
-            </div>
-            <div class="flex items-center mb-3">
-              <input
-                type="checkbox"
-                id="docSelfieKTP"
-                name="docSelfieKTP"
-                class="mr-3 w-4 h-4 accent-gray-800"
-              />
-              <label for="docSelfieKTP">Foto Selfie dengan KTP</label>
-            </div>
-            <div class="flex items-center mb-3">
-              <input
-                type="checkbox"
-                id="docKK"
-                name="docKK"
-                class="mr-3 w-4 h-4 accent-gray-800"
-              />
-              <label for="docKK">Kartu Keluarga</label>
-            </div>
-            <div class="flex items-center mb-3">
-              <input
-                type="checkbox"
-                id="docSIUP"
-                name="docSIUP"
-                class="mr-3 w-4 h-4 accent-gray-800"
-              />
-              <label for="docSIUP">SIUP</label>
-            </div>
-            <div class="flex items-center mb-3">
-              <input
-                type="checkbox"
-                id="docNPWP"
-                name="docNPWP"
-                class="mr-3 w-4 h-4 accent-gray-800"
-              />
-              <label for="docNPWP">NPWP</label>
-            </div>
-            <div class="flex items-center mb-3">
-              <input
-                type="checkbox"
-                id="docNIB"
-                name="docNIB"
-                class="mr-3 w-4 h-4 accent-gray-800"
-              />
-              <label for="docNIB">NIB</label>
-            </div>
-            <div class="flex items-center mb-3">
-              <input
-                type="checkbox"
-                id="docDomisili"
-                name="docDomisili"
-                class="mr-3 w-4 h-4 accent-gray-800"
-              />
-              <label for="docDomisili"
-                >Surat Keterangan Domisili Badan Usaha</label
-              >
-            </div>
+    <div class="page bg-white p-6 border border-gray-400">
+      <div class="bg-black text-white font-bold px-3 py-1 mt-1 mb-3">
+        VERIFIKASI DAN VALIDASI DOKUMEN KELENGKAPAN AGEN (DIISI OLEH MITRA) *
+      </div>
+      <div class="grid grid-cols-2 gap-x-5 gap-y-2 text-[10px]">
+        <div>
+          <div class="flex items-center mb-1">
+            <input
+              type="checkbox"
+              id="docKTP"
+              name="docKTP"
+              checked
+              class="mr-3 w-4 h-4 accent-gray-800"
+            /><label for="docKTP">KTP</label>
           </div>
-          <div>
-            <div class="flex items-center mb-3">
-              <input
-                type="checkbox"
-                id="docAkta"
-                name="docAkta"
-                class="mr-3 w-4 h-4 accent-gray-800"
-              />
-              <label for="docAkta"
-                >Akta Badan Usaha & Perubahan & Pengesahan</label
-              >
-            </div>
-            <div class="flex items-center mb-3">
-              <input
-                type="checkbox"
-                id="docBuktiSewa"
-                name="docBuktiSewa"
-                class="mr-3 w-4 h-4 accent-gray-800"
-              />
-              <label for="docBuktiSewa"
-                >Bukti Sewa Lokasi atau Bukti Kepemilikan
-                (PBB/Sertifikat)</label
-              >
-            </div>
-            <div class="flex items-center mb-3">
-              <input
-                type="checkbox"
-                id="docFotoLokasi"
-                name="docFotoLokasi"
-                checked
-                class="mr-3 w-4 h-4 accent-gray-800"
-              />
-              <label for="docFotoLokasi"
-                >Foto Lokasi (nama toko, tampak depan, samping, dalam)</label
-              >
-            </div>
-            <div class="flex items-center mb-3">
-              <input
-                type="checkbox"
-                id="docShareLoc"
-                name="docShareLoc"
-                class="mr-3 w-4 h-4 accent-gray-800"
-              />
-              <label for="docShareLoc"
-                >Share location Alamat Agen berusaha</label
-              >
-            </div>
-            <div class="flex items-center mb-3">
-              <input
-                type="checkbox"
-                id="docFotoRekening"
-                name="docFotoRekening"
-                checked
-                class="mr-3 w-4 h-4 accent-gray-800"
-              />
-              <label for="docFotoRekening"
-                >Foto Buku Rekening Halaman Pertama</label
-              >
-            </div>
+          <div class="flex items-center mb-1">
+            <input
+              type="checkbox"
+              id="docSelfieKTP"
+              name="docSelfieKTP"
+              class="mr-3 w-4 h-4 accent-gray-800"
+            /><label for="docSelfieKTP">Foto Selfie dengan KTP</label>
           </div>
-        </div>
-        <p class="text-xs mt-4 italic">
-          *) Agar dilengkapi sesuai dengan persyaratan jenis Agen (Badan
-          Usaha/Perorangan)
-        </p>
-
-        <div class="mt-8 text-sm">
-          <div class="mb-4">Diverifikasi dan divalidasi oleh,</div>
-          <p class="font-bold">
-            PT. <br />
-            (Mitra)
-          </p>
-          <div class="mt-3">
-            Manado, <span class="border-b border-black px-2">23</span>
-            <span class="border-b border-black px-2">Mei</span> 20<span
-              class="border-b border-black px-2"
-              >25</span
+          <div class="flex items-center mb-1">
+            <input
+              type="checkbox"
+              id="docKK"
+              name="docKK"
+              class="mr-3 w-4 h-4 accent-gray-800"
+            /><label for="docKK">Kartu Keluarga</label>
+          </div>
+          <div class="flex items-center mb-1">
+            <input
+              type="checkbox"
+              id="docSIUP"
+              name="docSIUP"
+              class="mr-3 w-4 h-4 accent-gray-800"
+            /><label for="docSIUP">SIUP</label>
+          </div>
+          <div class="flex items-center mb-1">
+            <input
+              type="checkbox"
+              id="docNPWP"
+              name="docNPWP"
+              class="mr-3 w-4 h-4 accent-gray-800"
+            /><label for="docNPWP">NPWP</label>
+          </div>
+          <div class="flex items-center mb-1">
+            <input
+              type="checkbox"
+              id="docNIB"
+              name="docNIB"
+              class="mr-3 w-4 h-4 accent-gray-800"
+            /><label for="docNIB">NIB</label>
+          </div>
+          <div class="flex items-center mb-1">
+            <input
+              type="checkbox"
+              id="docDomisili"
+              name="docDomisili"
+              class="mr-3 w-4 h-4 accent-gray-800"
+            /><label for="docDomisili"
+              >Surat Keterangan Domisili Badan Usaha</label
             >
           </div>
-
-          <div class="flex mt-20">
-            <span class="text-[8px]">(</span>
-
-            <div class="text-sm text-center border-b border-black px-6">
-              John Doe
-            </div>
-            <span class="text-[8px]">)</span>
+        </div>
+        <div>
+          <div class="flex items-center mb-1">
+            <input
+              type="checkbox"
+              id="docAkta"
+              name="docAkta"
+              class="mr-3 w-4 h-4 accent-gray-800"
+            /><label for="docAkta"
+              >Akta Badan Usaha & Perubahan & Pengesahan</label
+            >
+          </div>
+          <div class="flex items-center mb-1">
+            <input
+              type="checkbox"
+              id="docBuktiSewa"
+              name="docBuktiSewa"
+              class="mr-3 w-4 h-4 accent-gray-800"
+            /><label for="docBuktiSewa"
+              >Bukti Sewa Lokasi atau Bukti Kepemilikan (PBB/Sertifikat)</label
+            >
+          </div>
+          <div class="flex items-center mb-1">
+            <input
+              type="checkbox"
+              id="docFotoLokasi"
+              name="docFotoLokasi"
+              checked
+              class="mr-3 w-4 h-4 accent-gray-800"
+            /><label for="docFotoLokasi"
+              >Foto Lokasi (nama toko, tampak depan, samping, dalam)</label
+            >
+          </div>
+          <div class="flex items-center mb-1">
+            <input
+              type="checkbox"
+              id="docShareLoc"
+              name="docShareLoc"
+              class="mr-3 w-4 h-4 accent-gray-800"
+            /><label for="docShareLoc"
+              >Share location Alamat Agen berusaha</label
+            >
+          </div>
+          <div class="flex items-center mb-1">
+            <input
+              type="checkbox"
+              id="docFotoRekening"
+              name="docFotoRekening"
+              checked
+              class="mr-3 w-4 h-4 accent-gray-800"
+            /><label for="docFotoRekening"
+              >Foto Buku Rekening Halaman Pertama</label
+            >
           </div>
         </div>
       </div>
+      <p class="text-[10px] mt-2 italic">
+        *) Agar dilengkapi sesuai dengan persyaratan jenis Agen (Badan
+        Usaha/Perorangan)
+      </p>
 
-      <div class="page bg-white p-6 mb-5">
-        <div class="p-1 text-center">
-          <div
-            class="w-full h-auto flex justify-center items-center text-sm text-gray-600 border border-gray-400"
+      <div class="mt-4 text-xs">
+        <div class="mb-2">Diverifikasi dan divalidasi oleh,</div>
+        <p class="font-bold">PT. <br />(Mitra)</p>
+        <div class="mt-2">
+          Manado, <span class="border-b border-black px-2">23</span>
+          <span class="border-b border-black px-2">Mei</span> 20<span
+            class="border-b border-black px-2"
+            >25</span
           >
-            <img
-              class="mt-3"
-              src="http://official.aigent.id/api/v1/files/3f7dc816-6d3e-4eea-9098-10f61b3345f4.jpg"
-            />
-          </div>
-          <p class="text-xs mt-1 text-gray-700">Foto Lokasi 1</p>
         </div>
-        <div class="p-1 text-center">
-          <div
-            class="w-full h-auto flex justify-center items-center text-sm text-gray-600 border border-gray-400"
-          >
-            <img
-              class="mt-3"
-              src="http://official.aigent.id/api/v1/files/3f7dc816-6d3e-4eea-9098-10f61b3345f4.jpg"
-            />
+        <div class="flex mt-12">
+          <span class="text-[8px]">(</span>
+          <div class="text-xs text-center border-b border-black px-6">
+            John Doe
           </div>
-          <p class="text-xs mt-1 text-gray-700">Foto Lokasi 1</p>
+          <span class="text-[8px]">)</span>
         </div>
-        <div class="p-1 text-center">
-          <div
-            class="w-full h-auto flex justify-center items-center text-sm text-gray-600 border border-gray-400"
-          >
-            <img
-              class="mt-3"
-              src="http://official.aigent.id/api/v1/files/3f7dc816-6d3e-4eea-9098-10f61b3345f4.jpg"
-            />
-          </div>
-          <p class="text-xs mt-1 text-gray-700">Foto Lokasi 1</p>
+      </div>
+    </div>
+
+    <div class="page bg-white p-6">
+      <div class="p-1 text-center">
+        <div
+          class="w-full h-auto flex justify-center items-center text-xs text-gray-600 border border-gray-400"
+        >
+          <img
+            class="mt-3"
+            src="http://official.aigent.id/api/v1/files/3f7dc816-6d3e-4eea-9098-10f61b3345f4.jpg"
+          />
         </div>
+        <p class="text-[10px] mt-1 text-gray-700">Foto Lokasi 1</p>
+      </div>
+      <div class="p-1 text-center">
+        <div
+          class="w-full h-auto flex justify-center items-center text-xs text-gray-600 border border-gray-400"
+        >
+          <img
+            class="mt-3"
+            src="http://official.aigent.id/api/v1/files/3f7dc816-6d3e-4eea-9098-10f61b3345f4.jpg"
+          />
+        </div>
+        <p class="text-[10px] mt-1 text-gray-700">Foto Lokasi 1</p>
+      </div>
+      <div class="p-1 text-center">
+        <div
+          class="w-full h-auto flex justify-center items-center text-xs text-gray-600 border border-gray-400"
+        >
+          <img
+            class="mt-3"
+            src="http://official.aigent.id/api/v1/files/3f7dc816-6d3e-4eea-9098-10f61b3345f4.jpg"
+          />
+        </div>
+        <p class="text-[10px] mt-1 text-gray-700">Foto Lokasi 1</p>
       </div>
     </div>
   </body>

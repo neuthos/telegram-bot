@@ -80,6 +80,16 @@ INSERT INTO banks (name) VALUES
 ('Bank Mega'),
 ('Bank OCBC NISP');
 
+ALTER TABLE kyc_applications ADD COLUMN emeterai_status VARCHAR(50) DEFAULT 'not_started';
+ALTER TABLE kyc_applications ADD COLUMN emeterai_transaction_id VARCHAR(255);
+ALTER TABLE kyc_applications ADD COLUMN emeterai_token TEXT;
+ALTER TABLE kyc_applications ADD COLUMN emeterai_token_expires TIMESTAMP;
+ALTER TABLE kyc_applications ADD COLUMN emeterai_sn VARCHAR(255);
+ALTER TABLE kyc_applications ADD COLUMN stamped_pdf_url TEXT;
+ALTER TABLE kyc_applications ADD COLUMN stamped_by VARCHAR(255);
+ALTER TABLE kyc_applications ADD COLUMN stamped_at TIMESTAMP;
+
+
 -- Indexes
 CREATE INDEX idx_active_sessions_telegram_id ON active_sessions(telegram_id);
 CREATE INDEX idx_kyc_applications_id_card ON kyc_applications(id_card_number);

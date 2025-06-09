@@ -33,10 +33,19 @@ export interface KYCApplication {
   // System fields
   confirm_date?: Date;
   signature_initial: string;
-  // Removed signature_photo_path
   status: "draft" | "confirmed" | "rejected";
   remark?: string;
   pdf_url?: string;
+
+  // E-Meterai fields
+  emeterai_status: EmeteraiStatus;
+  emeterai_transaction_id?: string;
+  emeterai_token?: string;
+  emeterai_token_expires?: Date;
+  emeterai_sn?: string;
+  stamped_pdf_url?: string;
+  stamped_by?: string;
+  stamped_at?: Date;
 
   created_at?: Date;
   updated_at?: Date;
@@ -45,12 +54,13 @@ export interface KYCApplication {
 export interface KYCPhoto {
   id?: number;
   application_id: number;
-  photo_type: "location_photos" | "bank_book" | "id_card"; // Removed signature
-  file_path: string; // This will contain CDN URLs
+  photo_type: "location_photos" | "bank_book" | "id_card";
+  file_path: string;
   file_name: string;
   file_size?: number;
   uploaded_at?: Date;
 }
+
 export interface FormData {
   agent_name?: string;
   agent_address?: string;
@@ -110,8 +120,10 @@ export interface KYCListItem {
   agent_name: string;
   pic_name: string;
   status: "draft" | "confirmed" | "rejected";
+  emeterai_status: EmeteraiStatus;
   created_at: Date;
   pdf_url?: string;
+  stamped_pdf_url?: string;
   remark?: string;
 }
 
@@ -126,7 +138,103 @@ export interface KYCListResponse {
   pic_name: string;
   pic_phone: string;
   status: "draft" | "confirmed" | "rejected";
+  emeterai_status: EmeteraiStatus;
   created_at: Date;
   pdf_url?: string;
+  stamped_pdf_url?: string;
   remark?: string;
+  stamped_by?: string;
+  stamped_at?: Date;
+}
+
+// E-Meterai specific types
+export enum EmeteraiStatus {
+  NOT_STARTED = "not_started",
+  GETTING_TOKEN = "getting_token",
+  CONVERTING_PDF = "converting_pdf",
+  UPLOADING_DOCUMENT = "uploading_document",
+  GENERATING_SN = "generating_sn",
+  STAMPING = "stamping",
+  DOWNLOADING = "downloading",
+  COMPLETED = "completed",
+  FAILED = "failed",
+}
+
+export interface EmeteraiTokenResponse {
+  response_code: string;
+  response_message: string;
+  http_response: number;
+  data: {
+    MCPToken: {
+      Token: {
+        jwt: string;
+        expiredDate: string;
+      };
+    };
+    ClientInfo: {
+      id: string;
+      phone: string;
+      email: string;
+      company_name: string;
+      address: string;
+    };
+    balanceInfo: {
+      balance_money: number;
+      invoice: number;
+      limit_invoice: number;
+      type: string;
+      lastUpdatedAt: string;
+    };
+  };
+}
+
+export interface EmeteraiUploadResponse {
+  response_code: string;
+  response_message: string;
+  data: {
+    transaction_id: string;
+  };
+}
+
+export interface EmeteraiGenerateSNResponse {
+  response_code: string;
+  response_message: string;
+  data: {
+    sn_meterai: string;
+  };
+}
+
+export interface EmeteraiStampRequest {
+  stamped_by: string;
+  coordinates?: {
+    lowerLeftX: number;
+    lowerLeftY: number;
+    upperRightX: number;
+    upperRightY: number;
+    page: number;
+  };
+}
+
+export interface EmeteraiStatusResponse {
+  id: number;
+  emeterai_status: EmeteraiStatus;
+  emeterai_transaction_id?: string;
+  stamped_pdf_url?: string;
+  stamped_by?: string;
+  stamped_at?: Date;
+  error_message?: string;
+}
+
+export interface BulkStampRequest {
+  applications: Array<{
+    id: number;
+    stamped_by: string;
+    coordinates?: {
+      lowerLeftX: number;
+      lowerLeftY: number;
+      upperRightX: number;
+      upperRightY: number;
+      page: number;
+    };
+  }>;
 }

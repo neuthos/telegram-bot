@@ -23,4 +23,20 @@ router.post("/:id/reject", kycController.rejectApplication);
 // PDF serving
 router.get("/:id/pdf", kycController.servePdf);
 
+router.post("/:id/stamp-emeterai", kycController.stampWithEmeterai);
+router.get("/:id/stamped-pdf", kycController.downloadStampedPdf);
+router.get("/:id/emeterai-status", kycController.getEmeteraiStatus);
+
+// Tambah routes baru:
+router.post("/:id/stamp-emeterai", kycController.stampWithEmeterai);
+router.get("/:id/stamped-pdf", kycController.downloadStampedPdf);
+router.get("/:id/emeterai-status", kycController.getEmeteraiStatus);
+
+// Single operations E-meterai
+router.post("/:id/stamp-emeterai", kycController.stampWithEmeterai);
+router.get("/:id/stamped-pdf", kycController.downloadStampedPdf);
+router.get("/:id/emeterai-status", kycController.getEmeteraiStatus);
+
+// Tambah di kycRoutes.ts
+router.get("/processing-progress", kycController.getProcessingProgress);
 export default router;

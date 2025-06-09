@@ -88,44 +88,91 @@ Status: ${statusText}
 📝 Langkah 1/15: Nama Agen
 
 Silakan masukkan nama agen:
+Contoh: Vifa CELL
 
 /menu - 🏠 Kembali ke menu utama`;
   }
 
   public generateContinueRegistrationMessage(nextStep: string): string {
-    // Special handling for terms and conditions
     if (nextStep === "terms_conditions") {
       return this.generateTermsConditionsMessage();
     }
 
-    const stepTexts: {[key: string]: string} = {
-      agent_name: "nama agen",
-      agent_address: "alamat agen",
-      owner_name: "nama pemilik",
-      business_field: "bidang usaha",
-      pic_name: "nama PIC",
-      pic_phone: "nomor telepon/HP PIC",
-      id_card_number: "nomor KTP (16 digit)",
-      tax_number: "nomor NPWP (opsional, ketik /skip untuk lewati)",
-      account_holder_name: "nama pemilik rekening",
-      bank_name: "nama bank",
-      account_number: "nomor rekening",
-      signature_initial: "inisial untuk tanda tangan (maksimal 10 karakter)",
-      location_photos:
-        "foto lokasi (nama toko, tampak depan, samping dan dalam)",
-      bank_book_photo: "foto buku rekening halaman pertama",
-      id_card_photo: "foto KTP",
+    const stepTexts: {[key: string]: {text: string; example: string}} = {
+      agent_name: {
+        text: "nama agen",
+        example: "Contoh: Vifa CELL",
+      },
+      agent_address: {
+        text: "alamat agen",
+        example:
+          "Contoh: Jalan Beringin Utara No. 123, Ternate Baru, Kec. Singkil",
+      },
+      owner_name: {
+        text: "nama pemilik",
+        example: "Contoh: Asnawi Stone",
+      },
+      business_field: {
+        text: "bidang usaha",
+        example: "Contoh: Toko Kelontong",
+      },
+      pic_name: {
+        text: "nama PIC",
+        example: "Contoh: Asnawi Stone",
+      },
+      pic_phone: {
+        text: "nomor telepon/HP PIC",
+        example: "Contoh: 085240708595 atau +6285240708595",
+      },
+      id_card_number: {
+        text: "nomor KTP (16 digit)",
+        example: "Contoh: 7171030308720002",
+      },
+      tax_number: {
+        text: "nomor NPWP (opsional, ketik /skip untuk lewati)",
+        example: "Contoh: 123456789012345 (15 digit)",
+      },
+      account_holder_name: {
+        text: "nama pemilik rekening",
+        example: "Contoh: Asnawi Stone",
+      },
+      bank_name: {
+        text: "nama bank",
+        example: "Contoh: Bank BRI atau Bank Mandiri",
+      },
+      account_number: {
+        text: "nomor rekening",
+        example: "Contoh: 0689-01-012420-50-9",
+      },
+      signature_initial: {
+        text: "inisial untuk tanda tangan (maksimal 10 karakter)",
+        example: "Contoh: AS atau A.S",
+      },
+      location_photos: {
+        text: "foto lokasi (nama toko, tampak depan, samping dan dalam)",
+        example: "Upload foto lokasi usaha Anda",
+      },
+      bank_book_photo: {
+        text: "foto buku rekening halaman pertama",
+        example: "Upload foto halaman pertama buku tabungan yang jelas",
+      },
+      id_card_photo: {
+        text: "foto KTP",
+        example: "Upload foto KTP yang jelas dan terbaca",
+      },
     };
 
     const stepNumber = this.getStepNumber(nextStep);
+    const stepInfo = stepTexts[nextStep];
 
     return `⏩ Melanjutkan pendaftaran KYC...
-  
-  📝 Langkah ${stepNumber}/15: ${stepTexts[nextStep] || nextStep}
-  
-  Silakan masukkan ${stepTexts[nextStep] || nextStep}:
-  
-  /menu - 🏠 Kembali ke menu utama`;
+
+📝 Langkah ${stepNumber}/15: ${stepInfo?.text || nextStep}
+
+Silakan masukkan ${stepInfo?.text || nextStep}:
+${stepInfo?.example || ""}
+
+/menu - 🏠 Kembali ke menu utama`;
   }
 
   private getStepNumber(step: string): number {
@@ -170,20 +217,55 @@ Silakan masukkan nama agen:
       signature_initial: "Inisial Tanda Tangan",
     };
 
-    const nextFieldTexts: {[key: string]: string} = {
-      agent_address: "alamat agen",
-      owner_name: "nama pemilik",
-      business_field: "bidang usaha",
-      pic_name: "nama PIC",
-      pic_phone: "nomor telepon/HP PIC",
-      id_card_number: "nomor KTP (16 digit)",
-      tax_number: "nomor NPWP (opsional, ketik /skip untuk lewati)",
-      account_holder_name: "nama pemilik rekening",
-      bank_name: "nama bank",
-      account_number: "nomor rekening",
-      signature_initial: "inisial untuk tanda tangan (maksimal 10 karakter)",
-      location_photos:
-        "foto lokasi (nama toko, tampak depan, samping dan dalam)",
+    const nextFieldTexts: {[key: string]: {text: string; example: string}} = {
+      agent_address: {
+        text: "alamat agen",
+        example: "Contoh: Jalan Beringin Utara No. 123, Ternate Baru",
+      },
+      owner_name: {
+        text: "nama pemilik",
+        example: "Contoh: Asnawi Stone",
+      },
+      business_field: {
+        text: "bidang usaha",
+        example: "Contoh: Toko Kelontong",
+      },
+      pic_name: {
+        text: "nama PIC",
+        example: "Contoh: Asnawi Stone",
+      },
+      pic_phone: {
+        text: "nomor telepon/HP PIC",
+        example: "Contoh: 085240708595",
+      },
+      id_card_number: {
+        text: "nomor KTP (16 digit)",
+        example: "Contoh: 7171030308720002",
+      },
+      tax_number: {
+        text: "nomor NPWP (opsional, ketik /skip untuk lewati)",
+        example: "Contoh: 123456789012345",
+      },
+      account_holder_name: {
+        text: "nama pemilik rekening",
+        example: "Contoh: Asnawi Stone",
+      },
+      bank_name: {
+        text: "nama bank",
+        example: "Contoh: Bank BRI",
+      },
+      account_number: {
+        text: "nomor rekening",
+        example: "Contoh: 0689-01-012420-50-9",
+      },
+      signature_initial: {
+        text: "inisial untuk tanda tangan (maksimal 10 karakter)",
+        example: "Contoh: AS",
+      },
+      location_photos: {
+        text: "foto lokasi (nama toko, tampak depan, samping dan dalam)",
+        example: "Upload foto lokasi usaha Anda",
+      },
     };
 
     const currentStep = this.getStepNumber(field);
@@ -194,8 +276,10 @@ Silakan masukkan nama agen:
     let message = `✅ ${fieldNames[field]}: ${value}\n\n`;
 
     if (nextField && nextFieldTexts[nextField]) {
-      message += `📝 Langkah ${nextStep}/15: ${nextFieldTexts[nextField]}\n\n`;
-      message += `Silakan masukkan ${nextFieldTexts[nextField]}:\n\n`;
+      const nextInfo = nextFieldTexts[nextField];
+      message += `📝 Langkah ${nextStep}/15: ${nextInfo.text}\n\n`;
+      message += `Silakan masukkan ${nextInfo.text}:\n`;
+      message += `${nextInfo.example}\n\n`;
     }
 
     message += `/menu - 🏠 Kembali ke menu utama`;
@@ -256,20 +340,20 @@ Silakan masukkan nama agen:
 
   public generateTermsConditionsMessage(): string {
     return `📋 Syarat dan Ketentuan
-  
-  Dengan melanjutkan pendaftaran KYC ini, Anda menyetujui:
-  
-  1. Data yang saya berikan adalah benar dan akurat
-  2. Saya bertanggung jawab atas kebenaran data yang diberikan
-  3. Data saya akan digunakan untuk proses verifikasi KYC
-  4. Perusahaan berhak menolak aplikasi jika data tidak valid
-  5. Data saya akan disimpan sesuai kebijakan privasi perusahaan
-  
-  Apakah Anda menyetujui syarat dan ketentuan di atas?
-  
-  /setuju - ✅ Setuju dan lanjutkan
-  /tidaksetuju - ❌ Tidak setuju (batalkan pendaftaran)
-  /menu - 🏠 Kembali ke menu utama`;
+
+Dengan melanjutkan pendaftaran KYC ini, Anda menyetujui:
+
+1. Data yang saya berikan adalah benar dan akurat
+2. Saya bertanggung jawab atas kebenaran data yang diberikan
+3. Data saya akan digunakan untuk proses verifikasi KYC
+4. Perusahaan berhak menolak aplikasi jika data tidak valid
+5. Data saya akan disimpan sesuai kebijakan privasi perusahaan
+
+Apakah Anda menyetujui syarat dan ketentuan di atas?
+
+/setuju - ✅ Setuju dan lanjutkan
+/tidaksetuju - ❌ Tidak setuju (batalkan pendaftaran)
+/menu - 🏠 Kembali ke menu utama`;
   }
 
   public generateConfirmationMessage(formData: any): string {
@@ -491,26 +575,27 @@ Anda dapat mendaftar ulang dengan data yang benar.
 
   public async generateBankSelectionMessage(): Promise<string> {
     try {
-      const bankCommands = await this.bankService.getBankCommands();
-      const bankOptions = bankCommands
-        .map((bank) => `/${bank.command} - ${bank.name}`)
+      const banks = await this.bankService.getAllBanks();
+      const bankOptions = banks
+        .map((bank) => `/${bank?.split(" ")?.join("")}`)
         .join("\n");
 
       return `🏦 *Pilih Bank*
-  
-  Silakan pilih bank Anda dengan mengetik command:
 
-${bankOptions}`;
+Silakan pilih bank Anda dengan mengetik:
+
+${bankOptions}
+
+Ketik sesuai format di atas (dengan tanda /)`;
     } catch (error) {
       return `🏦 *Pilih Bank*
-  
-  Silakan ketik nama bank Anda dengan format:
-  /BankCentralAsia
-  /BankMandiri
-  /BankNegara Indonesia
-  dst.
-  
-  (Format: /NamaBankTanpaSpasi)`;
+
+Silakan ketik nama bank Anda dengan format:
+/Bank Central Asia
+/Bank Mandiri
+dst.
+
+(Format: /NamaBank)`;
     }
   }
 }

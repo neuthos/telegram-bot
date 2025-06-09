@@ -5,11 +5,9 @@ import {Logger} from "../config/logger";
 export class CDNService {
   private logger = Logger.getInstance();
   private baseURL: string;
-  private apiKey: string;
 
   constructor() {
     this.baseURL = process.env.CDN_BASE_URL!;
-    this.apiKey = process.env.CDN_API_KEY!;
   }
 
   public async uploadFile(
@@ -30,7 +28,6 @@ export class CDNService {
         {
           headers: {
             ...formData.getHeaders(),
-            // Authorization: `Bearer ${this.apiKey}`,
           },
         }
       );
