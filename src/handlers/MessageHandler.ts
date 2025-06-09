@@ -5,6 +5,7 @@ import {BankService} from "../services/BankService";
 import {Logger} from "../config/logger";
 import {MessageTemplates} from "../messages/MessagesTemplates";
 import {SessionStep, KYCApplication} from "../types";
+import {BusinessFieldService} from "../services/BusinessFieldService";
 
 export class MessageHandler {
   private sessionService = new SessionService();
@@ -12,6 +13,7 @@ export class MessageHandler {
   private bankService = new BankService();
   private logger = Logger.getInstance();
   private messages = new MessageTemplates();
+  private businessFieldService = new BusinessFieldService();
 
   public async handleMessage(
     bot: TelegramBot,
@@ -169,30 +171,60 @@ export class MessageHandler {
           msg
         );
         break;
+
       case "/setuju":
       case "/tidaksetuju":
-        // Handle these based on current session step
-        const session = await this.sessionService.getActiveSession(telegramId);
-        if (!session) {
-          await bot.sendMessage(
+        // Priority 1: Check active session untuk terms & conditions dulu
+        const activeSession = await this.sessionService.getActiveSession(
+          telegramId
+        );
+
+        if (activeSession) {
+          if (activeSession.current_step === SessionStep.TERMS_CONDITIONS) {
+            const action = command === "/setuju" ? "Ya" : "Tidak";
+            await this.handleTermsConditions(
+              bot,
+              telegramId,
+              action,
+              activeSession,
+              msg
+            );
+            return;
+          } else if (activeSession.current_step === SessionStep.CONFIRMATION) {
+            const action =
+              command === "/setuju"
+                ? "Ya, Daftarkan"
+                : "Tidak, Ulangi Pendaftaran";
+            await this.handleConfirmation(
+              bot,
+              telegramId,
+              action,
+              activeSession,
+              msg
+            );
+            return;
+          }
+        }
+
+        // Priority 2: Check confirmed application untuk e-meterai consent
+        const application =
+          await this.sessionService.getKYCApplicationByTelegramId(telegramId);
+        if (
+          application &&
+          application.status === "confirmed" &&
+          application.user_emeterai_consent === null
+        ) {
+          await this.handleEmeteraiConsent(
+            bot,
             telegramId,
-            this.messages.generateNoActiveSessionMessage()
+            command === "/setuju",
+            application
           );
           return;
         }
 
-        if (session.current_step === SessionStep.TERMS_CONDITIONS) {
-          const action = command === "/setuju" ? "Ya" : "Tidak";
-          await this.handleTermsConditions(
-            bot,
-            telegramId,
-            action,
-            session,
-            msg
-          );
-        } else {
-          await this.handleUnknownMessage(bot, telegramId);
-        }
+        // Priority 3: Default unknown message
+        await this.handleUnknownMessage(bot, telegramId);
         break;
       case "/ya":
       case "/tidak":
@@ -235,6 +267,15 @@ export class MessageHandler {
           );
           if (session && session.current_step === SessionStep.BANK_NAME) {
             await this.handleBankSelection(
+              bot,
+              telegramId,
+              command.substring(1)
+            );
+            return;
+          }
+
+          if (session && session.current_step === SessionStep.BUSINESS_FIELD) {
+            await this.handleBusinessFieldSelection(
               bot,
               telegramId,
               command.substring(1)
@@ -828,6 +869,10 @@ export class MessageHandler {
         "business_field"
       )
     );
+
+    const businessFieldMessage =
+      await this.messages.generateBusinessFieldSelectionMessage();
+    await bot.sendMessage(telegramId, businessFieldMessage);
   }
 
   private async handleBusinessFieldInput(
@@ -836,15 +881,30 @@ export class MessageHandler {
     text: string,
     session: any
   ): Promise<void> {
-    if (!text || text.length < 3) {
-      await bot.sendMessage(
-        telegramId,
-        this.messages.generateFieldValidationError("business_field")
-      );
+    if (!text.startsWith("/")) {
+      const businessFieldMessage =
+        await this.messages.generateBusinessFieldSelectionMessage();
+      await bot.sendMessage(telegramId, businessFieldMessage);
       return;
     }
 
-    session.form_data.business_field = text;
+    const businessField = text.substring(1);
+    const isValid = await this.businessFieldService.isValidBusinessField(
+      businessField
+    );
+
+    if (!isValid) {
+      await bot.sendMessage(
+        telegramId,
+        "❌ Bidang usaha tidak ditemukan. Silakan pilih dari daftar yang tersedia."
+      );
+      const businessFieldMessage =
+        await this.messages.generateBusinessFieldSelectionMessage();
+      await bot.sendMessage(telegramId, businessFieldMessage);
+      return;
+    }
+
+    session.form_data.business_field = businessField;
     await this.sessionService.createOrUpdateSession({
       telegram_id: telegramId,
       current_step: SessionStep.PIC_NAME,
@@ -855,7 +915,7 @@ export class MessageHandler {
       telegramId,
       this.messages.generateFieldSuccessMessage(
         "business_field",
-        text,
+        businessField,
         "pic_name"
       )
     );
@@ -1352,6 +1412,100 @@ export class MessageHandler {
           telegramId,
           this.messages.generateTermsConditionsMessage()
         );
+    }
+  }
+
+  private async handleBusinessFieldSelection(
+    bot: TelegramBot,
+    telegramId: number,
+    businessFieldCommand: string
+  ): Promise<void> {
+    const session = await this.sessionService.getActiveSession(telegramId);
+
+    if (!session || session.current_step !== SessionStep.BUSINESS_FIELD) {
+      await this.handleUnknownMessage(bot, telegramId);
+      return;
+    }
+
+    const businessField =
+      await this.businessFieldService.getBusinessFieldByCommand(
+        businessFieldCommand
+      );
+
+    if (!businessField) {
+      await bot.sendMessage(
+        telegramId,
+        `Bidang usaha "/${businessFieldCommand}" tidak tersedia. Silakan pilih dari daftar yang tersedia.`
+      );
+      const businessFieldMessage =
+        await this.messages.generateBusinessFieldSelectionMessage();
+      await bot.sendMessage(telegramId, businessFieldMessage);
+      return;
+    }
+
+    session.form_data.business_field = businessField;
+    await this.sessionService.createOrUpdateSession({
+      telegram_id: telegramId,
+      current_step: SessionStep.PIC_NAME,
+      form_data: session.form_data,
+    });
+
+    await bot.sendMessage(
+      telegramId,
+      this.messages.generateFieldSuccessMessage(
+        "business_field",
+        businessField,
+        "pic_name"
+      )
+    );
+  }
+
+  private async handleEmeteraiConsent(
+    bot: TelegramBot,
+    telegramId: number,
+    consent: boolean,
+    application: KYCApplication
+  ): Promise<void> {
+    try {
+      await this.sessionService.updateEmeteraiConsent(application.id!, consent);
+
+      if (consent) {
+        await bot.sendMessage(
+          telegramId,
+          "⏳ Memulai proses pembubuhan e-meterai..."
+        );
+
+        // Trigger e-meterai stamping
+        const emeteraiService =
+          new (require("../services/EMateraiService").EmeteraiService)();
+        await emeteraiService.processStamping(
+          application.id!,
+          application.confirmed_by_name!
+        );
+
+        // Send success notification with stamped PDF
+        const updatedApplication =
+          await this.sessionService.getKYCApplicationById(application.id!);
+        const message = this.messages.generateEmeteraiSuccessMessage(
+          updatedApplication!.stamped_pdf_url!
+        );
+        await bot.sendMessage(telegramId, message);
+      } else {
+        await bot.sendMessage(
+          telegramId,
+          "✅ Dokumen KYC Anda tetap valid tanpa e-meterai. Proses KYC telah selesai.\n\nTerima kasih! 🙏"
+        );
+      }
+    } catch (error) {
+      this.logger.error("Error handling e-meterai consent:", {
+        telegramId,
+        consent,
+        error,
+      });
+      await bot.sendMessage(
+        telegramId,
+        "❌ Terjadi kesalahan dalam proses e-meterai. Silakan hubungi admin."
+      );
     }
   }
 }

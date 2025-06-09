@@ -1,4 +1,5 @@
 import {BankService} from "../services/BankService";
+import {BusinessFieldService} from "../services/BusinessFieldService";
 
 export class MessageTemplates {
   private botName: string;
@@ -142,7 +143,7 @@ Contoh: Vifa CELL
       },
       account_number: {
         text: "nomor rekening",
-        example: "Contoh: 0689-01-012420-50-9",
+        example: "Contoh: 068901012420509",
       },
       signature_initial: {
         text: "inisial untuk tanda tangan (maksimal 10 karakter)",
@@ -228,7 +229,7 @@ ${stepInfo?.example || ""}
       },
       business_field: {
         text: "bidang usaha",
-        example: "Contoh: Toko Kelontong",
+        example: "Pilih dari daftar yang akan ditampilkan",
       },
       pic_name: {
         text: "nama PIC",
@@ -256,7 +257,7 @@ ${stepInfo?.example || ""}
       },
       account_number: {
         text: "nomor rekening",
-        example: "Contoh: 0689-01-012420-50-9",
+        example: "Contoh: 068901012420509",
       },
       signature_initial: {
         text: "inisial untuk tanda tangan (maksimal 10 karakter)",
@@ -275,11 +276,18 @@ ${stepInfo?.example || ""}
 
     let message = `✅ ${fieldNames[field]}: ${value}\n\n`;
 
-    if (nextField && nextFieldTexts[nextField]) {
+    // Special handling untuk business_field - jangan tampilkan next field instruction
+    if (
+      nextField &&
+      nextField !== "business_field" &&
+      nextFieldTexts[nextField]
+    ) {
       const nextInfo = nextFieldTexts[nextField];
       message += `📝 Langkah ${nextStep}/15: ${nextInfo.text}\n\n`;
       message += `Silakan masukkan ${nextInfo.text}:\n`;
       message += `${nextInfo.example}\n\n`;
+    } else if (nextField === "business_field") {
+      message += `📝 Langkah ${nextStep}/15: bidang usaha\n\n`;
     }
 
     message += `/menu - 🏠 Kembali ke menu utama`;
@@ -597,5 +605,61 @@ dst.
 
 (Format: /NamaBank)`;
     }
+  }
+
+  public async generateBusinessFieldSelectionMessage(): Promise<string> {
+    try {
+      const businessFieldService = new BusinessFieldService();
+      const fields = await businessFieldService.getAllBusinessFields();
+      const fieldOptions = fields
+        .map((field) => `/${field?.split(" ")?.join("")}`)
+        .join("\n");
+
+      return `🏢 *Pilih Bidang Usaha*
+
+Silakan pilih bidang usaha Anda dengan mengetik:
+
+${fieldOptions}
+
+Ketik sesuai format di atas (dengan tanda /)`;
+    } catch (error) {
+      return `🏢 *Pilih Bidang Usaha*
+
+Silakan ketik bidang usaha Anda dengan format:
+/TokoKelontong
+/WarungMakan
+dst.
+
+(Format: /NamaBidangUsaha)`;
+    }
+  }
+
+  public generateEmeteraiConsentMessage(formData: any, pdfUrl: string): string {
+    return `📋 Data KYC Anda telah dikonfirmasi oleh admin!
+
+👤 **DATA AGEN**
+- Nama Agen: ${formData.agent_name}
+- Nama PIC: ${formData.pic_name}
+- Telepon PIC: ${formData.pic_phone}
+
+📄 **PDF KYC**: ${pdfUrl}
+
+🔐 **E-METERAI STAMPING**
+Untuk memberikan validitas hukum pada dokumen KYC Anda, kami menyediakan layanan pembubuhan e-meterai digital.
+
+Apakah Anda setuju untuk melakukan pembubuhan e-meterai pada dokumen KYC Anda?
+
+/setuju - ✅ Setuju pembubuhan e-meterai
+/tidaksetuju - ❌ Tidak setuju`;
+  }
+
+  public generateEmeteraiSuccessMessage(stampedPdfUrl: string): string {
+    return `🎉 E-meterai berhasil dibubuhkan!
+
+📄 **Dokumen KYC Ber-E-meterai**: ${stampedPdfUrl}
+
+✅ Dokumen KYC Anda sekarang telah memiliki validitas hukum penuh dengan e-meterai digital.
+
+Terima kasih telah melengkapi proses KYC! 🙏`;
   }
 }

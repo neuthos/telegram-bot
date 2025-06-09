@@ -29,6 +29,10 @@ export interface KYCApplication {
   account_holder_name: string;
   bank_name: string;
   account_number: string;
+  confirmed_by_name?: string;
+  confirmed_by_initial?: string;
+  confirmed_by_partner?: string;
+  user_emeterai_consent?: boolean;
 
   // System fields
   confirm_date?: Date;
@@ -237,4 +241,10 @@ export interface BulkStampRequest {
       page: number;
     };
   }>;
+}
+
+export interface ConfirmRequest {
+  name: string;
+  initial: string;
+  partner_name: string;
 }

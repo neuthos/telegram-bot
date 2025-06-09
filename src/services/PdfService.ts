@@ -105,6 +105,10 @@ export class PDFService {
         .join("");
     };
 
+    const partnerName = application.confirmed_by_partner || "Partner";
+    const confirmedByName = application.confirmed_by_name || "Admin";
+    const confirmedByInitial = application.confirmed_by_initial || "Admin";
+
     return `
       <!DOCTYPE html>
       <html lang="id">
@@ -239,7 +243,7 @@ export class PDFService {
             </div>
             <div class="mt-2 text-xs">
               <p class="text-[10px] leading-tight text-justify mb-8">
-                Dengan menandatangani Formulir Informasi Agen ini, saya menyatakan bahwa semua informasi yang saya berikan adalah lengkap dan benar serta saya sepakat untuk tunduk dan terikat pada ketentuan-ketentuan yang diberlakukan oleh PT Artajasa Pembayaran Elektronis, termasuk tetapi tidak terbatas pada Syarat dan Ketentuan Agen yang terlampir dalam Formulir Informasi Agen ini, berikut dengan segenap perubahannya yang ditetapkan dari waktu ke waktu.
+                Dengan menandatangani Formulir Informasi Agen ini, saya menyatakan bahwa semua informasi yang saya berikan adalah lengkap dan benar serta saya sepakat untuk tunduk dan terikat pada ketentuan-ketentuan yang diberlakukan oleh ${partnerName}, termasuk tetapi tidak terbatas pada Syarat dan Ketentuan Agen yang terlampir dalam Formulir Informasi Agen ini, berikut dengan segenap perubahannya yang ditetapkan dari waktu ke waktu.
               </p>
               <div class="mb-1">Untuk dan atas nama Agen,</div>
               <div class="flex flex-col items-start">
@@ -251,7 +255,7 @@ export class PDFService {
                 </div>
                 <div class="mt-1 px-5 flex items-center justify-between w-full">
                   <div>
-                    <div class="signature-initials text-center mb-1">${
+                    <div class="signature-initials text-center mb-3">${
                       application.signature_initial
                     }</div>
                     <div class="flex">
@@ -294,16 +298,17 @@ export class PDFService {
             <p class="text-[10px] mt-2 italic">*) Agar dilengkapi sesuai dengan persyaratan jenis Agen (Badan Usaha/Perorangan)</p>
             <div class="mt-4 text-xs">
               <div class="mb-2">Diverifikasi dan divalidasi oleh,</div>
-              <p class="font-bold">PT. ${
-                process.env.COMPANY_NAME
-              }<br />(Mitra)</p>
+              <p class="font-bold">${partnerName}<br />(Mitra)</p>
               <div class="mt-2">Mataram, <span class="border-b border-black px-2">${day}</span> <span class="border-b border-black px-2">${month}</span> 20<span class="border-b border-black px-2">${year}</span></div>
-              <div class="flex mt-12">
-                <span class="text-[8px]">(</span>
-                <div class="text-xs text-center border-b border-black px-6">${
-                  application.stamped_by || "John Doe"
-                }</div>
-                <span class="text-[8px]">)</span>
+              <div class="flex justify-between">
+                <div>
+                  <div class="signature-initials mt-12 text-center mb-3">${confirmedByInitial}</div>
+                  <div class="flex">
+                    <span class="text-[8px]">(</span>
+                    <div class="text-xs text-center border-b border-black px-6">${confirmedByName}</div>
+                    <span class="text-[8px]">)</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

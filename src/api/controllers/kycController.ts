@@ -7,6 +7,9 @@ import {Logger} from "../../config/logger";
 import path from "path";
 import fs from "fs-extra";
 import {EmeteraiService} from "../../services/EMateraiService";
+import {ConfirmRequest} from "../../types";
+import TelegramBot from "node-telegram-bot-api";
+import {MessageTemplates} from "../../messages/MessagesTemplates";
 
 export class KYCController {
   private sessionService = new SessionService();
@@ -186,6 +189,15 @@ export class KYCController {
   ): Promise<void> => {
     try {
       const {id} = req.params;
+      const {name, initial, partner_name}: ConfirmRequest = req.body;
+
+      if (!name || !initial || !partner_name) {
+        res.status(400).json({
+          success: false,
+          message: "Name, initial, and partner_name are required",
+        });
+        return;
+      }
 
       const application = await this.sessionService.getKYCApplicationById(
         parseInt(id)
@@ -206,9 +218,34 @@ export class KYCController {
         return;
       }
 
-      await this.sessionService.updateApplicationStatus(
+      await this.sessionService.updateApplicationStatusWithAdmin(
         parseInt(id),
-        "confirmed"
+        "confirmed",
+        name,
+        initial,
+        partner_name
+      );
+
+      // Generate PDF immediately after confirmation
+      const photos = await this.sessionService.getApplicationPhotos(
+        parseInt(id)
+      );
+      const updatedApplication =
+        await this.sessionService.getKYCApplicationById(parseInt(id));
+      const pdfUrl = await this.pdfService.generateKYCPDF(
+        updatedApplication!,
+        photos
+      );
+      await this.sessionService.updateApplicationPdfUrl(parseInt(id), pdfUrl);
+
+      // Send Telegram notification
+      await this.sendTelegramNotification(
+        application.telegram_id,
+        "confirmed",
+        {
+          pdfUrl,
+          application: updatedApplication,
+        }
       );
 
       res.json({
@@ -217,6 +254,7 @@ export class KYCController {
         data: {
           id: parseInt(id),
           status: "confirmed",
+          pdf_url: pdfUrl,
         },
       });
     } catch (error) {
@@ -287,7 +325,6 @@ export class KYCController {
     }
   };
 
-  // 5. Reject Application
   public rejectApplication = async (
     req: Request,
     res: Response<ApiResponse>
@@ -324,6 +361,11 @@ export class KYCController {
       }
 
       await this.sessionService.rejectApplication(parseInt(id), remark.trim());
+
+      // Send Telegram notification
+      await this.sendTelegramNotification(application.telegram_id, "rejected", {
+        remark: remark.trim(),
+      });
 
       res.json({
         success: true,
@@ -859,6 +901,50 @@ export class KYCController {
       });
     }
   };
+
+  private async sendTelegramNotification(
+    telegramId: number,
+    type: "confirmed" | "rejected",
+    data: any
+  ): Promise<void> {
+    try {
+      console.log("Sending Telegram notification:", {telegramId, type});
+
+      const bot = new TelegramBot(process.env.BOT_TOKEN!, {
+        polling: false,
+      });
+      const messageTemplates = new MessageTemplates();
+
+      if (type === "confirmed") {
+        const message = messageTemplates.generateEmeteraiConsentMessage(
+          data.application,
+          data.pdfUrl
+        );
+
+        await bot.sendMessage(telegramId, message, {
+          parse_mode: "Markdown",
+        });
+      } else if (type === "rejected") {
+        const message = `❌ Aplikasi KYC Anda telah ditolak.
+
+📝 Alasan: ${data.remark}
+
+Anda dapat mendaftar ulang dengan data yang benar menggunakan /daftar`;
+
+        const result = await bot.sendMessage(telegramId, message);
+        console.log("Telegram rejection message sent successfully:", result);
+      }
+    } catch (error: any) {
+      this.logger.error("Error sending Telegram notification:", {
+        telegramId,
+        type,
+        error: error.message,
+        stack: error.stack,
+      });
+      console.error("Detailed Telegram error:", error);
+      throw error;
+    }
+  }
 }
 
 export const kycController = new KYCController();

@@ -466,4 +466,75 @@ export class SessionService {
       [pdfUrl, stampedBy, id]
     );
   }
+
+  public async updateApplicationStatusWithAdmin(
+    id: number,
+    status: "confirmed" | "rejected",
+    confirmedByName: string,
+    confirmedByInitial: string,
+    confirmedByPartner: string
+  ): Promise<void> {
+    try {
+      await this.db.query(
+        `UPDATE kyc_applications 
+       SET status = $1, confirmed_by_name = $2, confirmed_by_initial = $3, 
+           confirmed_by_partner = $4, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $5`,
+        [status, confirmedByName, confirmedByInitial, confirmedByPartner, id]
+      );
+
+      this.logger.info("Application status updated with admin info:", {
+        id,
+        status,
+        confirmedByName,
+        confirmedByInitial,
+        confirmedByPartner,
+      });
+    } catch (error) {
+      this.logger.error("Error updating application status with admin info:", {
+        id,
+        status,
+        error,
+      });
+      throw error;
+    }
+  }
+
+  public async updateEmeteraiConsent(
+    id: number,
+    consent: boolean
+  ): Promise<void> {
+    try {
+      await this.db.query(
+        "UPDATE kyc_applications SET user_emeterai_consent = $1 WHERE id = $2",
+        [consent, id]
+      );
+    } catch (error) {
+      this.logger.error("Error updating e-meterai consent:", {
+        id,
+        consent,
+        error,
+      });
+      throw error;
+    }
+  }
+
+  public async getKYCApplicationByTelegramId(
+    telegramId: number
+  ): Promise<KYCApplication | null> {
+    try {
+      const result = await this.db.query(
+        "SELECT * FROM kyc_applications WHERE telegram_id = $1 ORDER BY created_at DESC LIMIT 1",
+        [telegramId]
+      );
+
+      return result.rows.length > 0 ? result.rows[0] : null;
+    } catch (error) {
+      this.logger.error("Error getting KYC application by telegram ID:", {
+        telegramId,
+        error,
+      });
+      throw error;
+    }
+  }
 }

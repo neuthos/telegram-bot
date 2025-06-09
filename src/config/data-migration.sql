@@ -2,6 +2,8 @@
 DROP TABLE IF EXISTS kyc_photos CASCADE;
 DROP TABLE IF EXISTS kyc_applications CASCADE;
 DROP TABLE IF EXISTS active_sessions CASCADE;
+DROP TABLE IF EXISTS banks CASCADE;
+DROP TABLE IF EXISTS business_fields CASCADE;
 
 -- Active sessions for ongoing registrations
 CREATE TABLE active_sessions (
@@ -23,7 +25,7 @@ CREATE TABLE kyc_applications (
     username VARCHAR(100),
     first_name VARCHAR(100),
     last_name VARCHAR(100),
-    
+
     -- Form fields following the order
     agent_name VARCHAR(200) NOT NULL,
     agent_address TEXT NOT NULL,
@@ -36,13 +38,13 @@ CREATE TABLE kyc_applications (
     account_holder_name VARCHAR(200) NOT NULL,
     bank_name VARCHAR(100) NOT NULL,
     account_number VARCHAR(50) NOT NULL,
-    
+
     -- System fields
     confirm_date TIMESTAMP,
     signature_initial VARCHAR(10) NOT NULL,
     -- Removed signature_photo_path since we're not using signature photos anymore
     status VARCHAR(20) DEFAULT 'draft' CHECK (status IN ('draft', 'confirmed', 'rejected')),
-    
+
     remark TEXT NULL,
     pdf_url TEXT NULL,
 
@@ -68,10 +70,10 @@ CREATE TABLE banks (
 );
 
 -- Insert sample banks
-INSERT INTO banks (name) VALUES 
+INSERT INTO banks (name) VALUES
 ('Bank Central Asia'),
 ('Bank Mandiri'),
-('Bank Negara Indonesia'), 
+('Bank Negara Indonesia'),
 ('Bank Rakyat Indonesia'),
 ('Bank CIMB Niaga'),
 ('Bank Danamon'),
@@ -98,5 +100,31 @@ CREATE INDEX idx_kyc_photos_application_id ON kyc_photos(application_id);
 CREATE INDEX idx_kyc_photos_type ON kyc_photos(photo_type);
 
 -- Add constraints (updated to remove signature)
-ALTER TABLE kyc_photos ADD CONSTRAINT check_photo_type 
+ALTER TABLE kyc_photos ADD CONSTRAINT check_photo_type
 CHECK (photo_type IN ('location_photos', 'bank_book', 'id_card'));
+
+-- Tambah table untuk business fields
+CREATE TABLE business_fields (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insert sample business fields
+INSERT INTO business_fields (name) VALUES
+('Toko Kelontong'),
+('Warung Makan'),
+('Toko Elektronik'),
+('Apotek'),
+('Bengkel'),
+('Salon/Barbershop'),
+('Laundry'),
+('Toko Baju'),
+('Toko Handphone'),
+('Minimarket');
+
+-- Tambah field untuk admin confirmation info
+ALTER TABLE kyc_applications ADD COLUMN confirmed_by_name VARCHAR(200);
+ALTER TABLE kyc_applications ADD COLUMN confirmed_by_initial VARCHAR(10);
+ALTER TABLE kyc_applications ADD COLUMN confirmed_by_partner VARCHAR(200);
+ALTER TABLE kyc_applications ADD COLUMN user_emeterai_consent BOOLEAN DEFAULT NULL;
