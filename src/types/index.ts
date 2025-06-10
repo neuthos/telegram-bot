@@ -29,6 +29,8 @@ export interface KYCApplication {
   account_holder_name: string;
   bank_name: string;
   account_number: string;
+  admin_confirmed_at?: Date;
+  admin_rejected_at?: Date;
   confirmed_by_name?: string;
   confirmed_by_initial?: string;
   confirmed_by_partner?: string;
@@ -244,6 +246,30 @@ export interface BulkStampRequest {
 }
 
 export interface ConfirmRequest {
+  name: string;
+  initial: string;
+  partner_name: string;
+}
+
+export interface RejectRequest {
+  remark: string;
+  name: string;
+  initial: string;
+  partner_name: string;
+}
+
+export interface BulkConfirmRequest {
+  ids: number[];
+  name: string;
+  initial: string;
+  partner_name: string;
+}
+
+export interface BulkRejectRequest {
+  applications: Array<{
+    id: number;
+    remark: string;
+  }>;
   name: string;
   initial: string;
   partner_name: string;

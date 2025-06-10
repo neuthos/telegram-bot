@@ -109,9 +109,8 @@ export class SessionService {
         `INSERT INTO kyc_applications 
                  (telegram_id, username, first_name, last_name, agent_name, agent_address, 
                   owner_name, business_field, pic_name, pic_phone, id_card_number, tax_number,
-                  account_holder_name, bank_name, account_number, signature_initial, 
-                  confirm_date, status)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, CURRENT_TIMESTAMP, 'draft')
+                  account_holder_name, bank_name, account_number, signature_initial, status)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'draft')
                  RETURNING id`,
         [
           session.telegram_id,
@@ -323,16 +322,24 @@ export class SessionService {
     }
   }
 
-  public async rejectApplication(id: number, remark: string): Promise<void> {
+  public async rejectApplication(
+    id: number,
+    remark: string,
+    rejectedByName: string,
+    rejectedByInitial: string,
+    rejectedByPartner: string
+  ): Promise<void> {
     try {
       await this.db.query(
         `UPDATE kyc_applications 
-         SET status = 'rejected', remark = $1, updated_at = CURRENT_TIMESTAMP 
-         WHERE id = $2`,
-        [remark, id]
+       SET status = 'rejected', remark = $1, confirmed_by_name = $2, 
+           confirmed_by_initial = $3, confirmed_by_partner = $4, 
+           admin_rejected_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $5`,
+        [remark, rejectedByName, rejectedByInitial, rejectedByPartner, id]
       );
 
-      this.logger.info("Application rejected:", {id, remark});
+      this.logger.info("Application rejected:", {id, remark, rejectedByName});
     } catch (error) {
       this.logger.error("Error rejecting application:", {id, remark, error});
       throw error;
@@ -475,15 +482,20 @@ export class SessionService {
     confirmedByPartner: string
   ): Promise<void> {
     try {
-      await this.db.query(
-        `UPDATE kyc_applications 
-       SET status = $1, confirmed_by_name = $2, confirmed_by_initial = $3, 
-           confirmed_by_partner = $4, updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $5`,
-        [status, confirmedByName, confirmedByInitial, confirmedByPartner, id]
-      );
+      if (status === "confirmed") {
+        await this.db.query(
+          `UPDATE kyc_applications 
+         SET status = $1, confirmed_by_name = $2, confirmed_by_initial = $3, 
+             confirmed_by_partner = $4, admin_confirmed_at = CURRENT_TIMESTAMP, 
+             updated_at = CURRENT_TIMESTAMP 
+         WHERE id = $5`,
+          [status, confirmedByName, confirmedByInitial, confirmedByPartner, id]
+        );
+      } else {
+        throw new Error("Use rejectApplication method for rejection");
+      }
 
-      this.logger.info("Application status updated with admin info:", {
+      this.logger.info("Application confirmed with admin info:", {
         id,
         status,
         confirmedByName,

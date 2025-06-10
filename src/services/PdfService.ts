@@ -59,6 +59,26 @@ export class PDFService {
     }
   }
 
+  formatAddress = (address: string) => {
+    if (!address) return {line1: "", line2: "", line3: ""};
+
+    const addressParts = address.split(",").map((part) => part.trim());
+
+    if (addressParts.length <= 3) {
+      return {
+        line1: addressParts[0] || "",
+        line2: addressParts[1] || "",
+        line3: addressParts[2] || "",
+      };
+    } else {
+      const line1 = addressParts[0];
+      const line2 = addressParts.slice(1, -2).join(", ");
+      const line3 = addressParts.slice(-2).join(", ");
+
+      return {line1, line2, line3};
+    }
+  };
+
   private generateHTMLTemplate(
     application: KYCApplication,
     photos: KYCPhoto[]
@@ -70,13 +90,12 @@ export class PDFService {
     const month = today.toLocaleString("id-ID", {month: "long"});
     const year = today.getFullYear().toString().slice(-2);
 
-    // Split address into 3 lines based on comma separation
-    const addressParts = (application.agent_address || "").split(",");
-    const addressLine1 = addressParts[0]?.trim() || "";
-    const addressLine2 = addressParts[1]?.trim() || "";
-    const addressLine3 = addressParts[2]?.trim() || "";
-
-    // Helper function to generate the photo gallery on page 3
+    const addressFormatted = this.formatAddress(
+      application.agent_address || ""
+    );
+    const addressLine1 = addressFormatted.line1;
+    const addressLine2 = addressFormatted.line2;
+    const addressLine3 = addressFormatted.line3;
 
     const generatePhotoGallery = (photoList: KYCPhoto[]) => {
       if (!photoList || photoList.length === 0) {
@@ -89,18 +108,30 @@ export class PDFService {
         bank_book: "Foto Buku Rekening",
       };
 
-      return photoList
+      const photoOrder = ["location_photos", "id_card", "bank_book"];
+
+      const sortedPhotos = photoList.sort((a, b) => {
+        const indexA = photoOrder.indexOf(a.photo_type);
+        const indexB = photoOrder.indexOf(b.photo_type);
+
+        const orderA = indexA === -1 ? 999 : indexA;
+        const orderB = indexB === -1 ? 999 : indexB;
+
+        return orderA - orderB;
+      });
+
+      return sortedPhotos
         .map((photo) => {
           const caption = photoTypeNames[photo.photo_type] || "Foto Lainnya";
           return `
-            <div class="text-center h-1/6">
-                <div class="w-full h-full flex justify-center items-center text-xs text-gray-600 pt-3">
-                    <img class="max-w-full h-full" src="${photo.file_path}" alt="${caption}" />
-                </div>
-                <a href="${photo.file_path}" class="text-[10px] text-gray-700" style="color: blue; text-decoration: underline;">
-                  ${caption}
-                </a>
-            </div>`;
+        <div class="text-center h-1/6">
+            <div class="w-full h-full flex justify-center items-center text-xs text-gray-600 pt-3">
+                <img class="max-w-full h-full" src="${photo.file_path}" alt="${caption}" />
+            </div>
+            <a href="${photo.file_path}" class="text-[10px] text-gray-700" style="color: blue; text-decoration: underline;">
+              ${caption}
+            </a>
+        </div>`;
         })
         .join("");
     };
@@ -239,6 +270,48 @@ export class PDFService {
                     application.account_number
                   }" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
                 </div>
+              </div>
+              <div class="mt-8 ml-7 w-1/2">
+                <label for="jenisPerorangan" class="text-xs font-semibold"
+                  >Fitur yang diimplementasikan</label
+                >
+
+                <table class="w-full mt-2 border border-gray-800 text-xs">
+                  <tbody>
+                    <tr class="border-b border-gray-800">
+                      <td
+                        class="border-r border-gray-800 px-3 py-1 text-[10px] my-auto"
+                      >
+                        1. Transfer
+                      </td>
+                      <td class="text-center px-3 py-1 w-16">
+                        <input
+                          type="checkbox"
+                          id="Transfer"
+                          name="Transfer"
+                          checked
+                          class="accent-gray-800 mt-1"
+                        />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td
+                        class="border-r border-gray-800 px-3 py-1 text-[10px] my-auto"
+                      >
+                        2. Cek Saldo
+                      </td>
+                      <td class="text-center px-3 py-1 w-16">
+                        <input
+                          type="checkbox"
+                          id="CekSaldo"
+                          name="CekSaldo"
+                          checked
+                          class="accent-gray-800 mt-1"
+                        />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
             <div class="mt-2 text-xs">

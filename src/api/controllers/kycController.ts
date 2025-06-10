@@ -7,7 +7,11 @@ import {Logger} from "../../config/logger";
 import path from "path";
 import fs from "fs-extra";
 import {EmeteraiService} from "../../services/EMateraiService";
-import {ConfirmRequest} from "../../types";
+import {
+  BulkConfirmRequest,
+  BulkRejectRequest,
+  ConfirmRequest,
+} from "../../types";
 import TelegramBot from "node-telegram-bot-api";
 import {MessageTemplates} from "../../messages/MessagesTemplates";
 
@@ -272,11 +276,20 @@ export class KYCController {
     res: Response<ApiResponse>
   ): Promise<void> => {
     try {
-      const {ids} = req.body;
+      const {ids, name, initial, partner_name}: BulkConfirmRequest = req.body;
+
       if (!Array.isArray(ids) || ids.length === 0) {
         res.status(400).json({
           success: false,
           message: "IDs array is required",
+        });
+        return;
+      }
+
+      if (!name || !initial || !partner_name) {
+        res.status(400).json({
+          success: false,
+          message: "Name, initial, and partner_name are required",
         });
         return;
       }
@@ -296,12 +309,54 @@ export class KYCController {
           }
 
           if (application.status !== "draft") {
-            errors.push({id, error: "Application not in draft status"});
+            errors.push({id, error: "Can only confirm draft applications"});
             continue;
           }
 
-          await this.sessionService.updateApplicationStatus(id, "confirmed");
-          results.push({id, status: "confirmed"});
+          // Update status dengan admin info
+          await this.sessionService.updateApplicationStatusWithAdmin(
+            id,
+            "confirmed",
+            name,
+            initial,
+            partner_name
+          );
+
+          // Generate PDF
+          const photos = await this.sessionService.getApplicationPhotos(id);
+          const updatedApplication =
+            await this.sessionService.getKYCApplicationById(id);
+          const pdfUrl = await this.pdfService.generateKYCPDF(
+            updatedApplication!,
+            photos
+          );
+          await this.sessionService.updateApplicationPdfUrl(id, pdfUrl);
+
+          // Send Telegram notification
+          try {
+            await this.sendTelegramNotification(
+              application.telegram_id,
+              "confirmed",
+              {
+                pdfUrl,
+                application: updatedApplication,
+              }
+            );
+          } catch (telegramError) {
+            this.logger.error(
+              `Telegram notification failed for ID ${id}:`,
+              telegramError
+            );
+            // Don't fail the whole process for telegram errors
+          }
+
+          results.push({
+            id,
+            status: "confirmed",
+            pdf_url: pdfUrl,
+            confirmed_by: name,
+            confirmed_at: new Date(),
+          });
         } catch (error) {
           this.logger.error(`Error confirming application ID ${id}:`, error);
           errors.push({id, error: "Confirmation failed"});
@@ -314,6 +369,11 @@ export class KYCController {
         data: {
           results,
           errors,
+          confirmed_by: {
+            name,
+            initial,
+            partner_name,
+          },
         },
       });
     } catch (error) {
@@ -331,12 +391,30 @@ export class KYCController {
   ): Promise<void> => {
     try {
       const {id} = req.params;
-      const {remark} = req.body;
+      const {
+        remark,
+        name,
+        initial,
+        partner_name,
+      }: {
+        remark: string;
+        name: string;
+        initial: string;
+        partner_name: string;
+      } = req.body;
 
       if (!remark || remark.trim().length === 0) {
         res.status(400).json({
           success: false,
           message: "Remark is required",
+        });
+        return;
+      }
+
+      if (!name || !initial || !partner_name) {
+        res.status(400).json({
+          success: false,
+          message: "Name, initial, and partner_name are required for rejection",
         });
         return;
       }
@@ -360,12 +438,30 @@ export class KYCController {
         return;
       }
 
-      await this.sessionService.rejectApplication(parseInt(id), remark.trim());
+      await this.sessionService.rejectApplication(
+        parseInt(id),
+        remark.trim(),
+        name,
+        initial,
+        partner_name
+      );
 
       // Send Telegram notification
-      await this.sendTelegramNotification(application.telegram_id, "rejected", {
-        remark: remark.trim(),
-      });
+      try {
+        await this.sendTelegramNotification(
+          application.telegram_id,
+          "rejected",
+          {
+            remark: remark.trim(),
+          }
+        );
+      } catch (telegramError) {
+        console.error("Failed to send Telegram notification:", telegramError);
+        this.logger.error(
+          "Telegram notification failed but continuing:",
+          telegramError
+        );
+      }
 
       res.json({
         success: true,
@@ -374,6 +470,8 @@ export class KYCController {
           id: parseInt(id),
           status: "rejected",
           remark: remark.trim(),
+          rejected_by: name,
+          rejected_at: new Date(),
         },
       });
     } catch (error) {
@@ -391,12 +489,21 @@ export class KYCController {
     res: Response<ApiResponse>
   ): Promise<void> => {
     try {
-      const {applications} = req.body;
+      const {applications, name, initial, partner_name}: BulkRejectRequest =
+        req.body;
 
       if (!Array.isArray(applications) || applications.length === 0) {
         res.status(400).json({
           success: false,
           message: "Applications array is required",
+        });
+        return;
+      }
+
+      if (!name || !initial || !partner_name) {
+        res.status(400).json({
+          success: false,
+          message: "Admin info (name, initial, partner_name) is required",
         });
         return;
       }
@@ -426,12 +533,43 @@ export class KYCController {
           }
 
           if (application.status !== "draft") {
-            errors.push({id, error: "Application not in draft status"});
+            errors.push({id, error: "Can only reject draft applications"});
             continue;
           }
 
-          await this.sessionService.rejectApplication(id, remark.trim());
-          results.push({id, status: "rejected", remark: remark.trim()});
+          // Reject dengan admin info
+          await this.sessionService.rejectApplication(
+            id,
+            remark.trim(),
+            name,
+            initial,
+            partner_name
+          );
+
+          // Send Telegram notification
+          try {
+            await this.sendTelegramNotification(
+              application.telegram_id,
+              "rejected",
+              {
+                remark: remark.trim(),
+              }
+            );
+          } catch (telegramError) {
+            this.logger.error(
+              `Telegram notification failed for ID ${id}:`,
+              telegramError
+            );
+            // Don't fail the whole process for telegram errors
+          }
+
+          results.push({
+            id,
+            status: "rejected",
+            remark: remark.trim(),
+            rejected_by: name,
+            rejected_at: new Date(),
+          });
         } catch (error) {
           this.logger.error(`Error rejecting application ID ${id}:`, error);
           errors.push({id, error: "Rejection failed"});
@@ -444,6 +582,12 @@ export class KYCController {
         data: {
           results,
           errors,
+          processed_by: {
+            name,
+            initial,
+            partner_name,
+            processed_at: new Date(),
+          },
         },
       });
     } catch (error) {
