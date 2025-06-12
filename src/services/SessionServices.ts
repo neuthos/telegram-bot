@@ -107,17 +107,22 @@ export class SessionService {
 
       const applicationResult = await dbClient.query(
         `INSERT INTO kyc_applications 
-                 (telegram_id, username, first_name, last_name, agent_name, agent_address, 
-                  owner_name, business_field, pic_name, pic_phone, id_card_number, tax_number,
-                  account_holder_name, bank_name, account_number, signature_initial, status)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'draft')
-                 RETURNING id`,
+          (telegram_id, username, first_name, last_name, agent_name, province_code, province_name, 
+            city_code, city_name, agent_address, owner_name, business_field, pic_name, pic_phone, 
+            id_card_number, tax_number, account_holder_name, bank_name, account_number, 
+            signature_initial, status)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, 'draft')
+          RETURNING id`,
         [
           session.telegram_id,
           session.username,
           session.first_name,
           session.last_name,
           session.form_data.agent_name,
+          session.form_data.province_code,
+          session.form_data.province_name,
+          session.form_data.city_code,
+          session.form_data.city_name,
           session.form_data.agent_address,
           session.form_data.owner_name,
           session.form_data.business_field,
@@ -213,6 +218,8 @@ export class SessionService {
 
   public async getNextStep(formData: FormData): Promise<SessionStep> {
     if (!formData.agent_name) return SessionStep.AGENT_NAME;
+    if (!formData.province_code) return SessionStep.PROVINCE_SELECTION;
+    if (!formData.city_code) return SessionStep.CITY_SELECTION;
     if (!formData.agent_address) return SessionStep.AGENT_ADDRESS;
     if (!formData.owner_name) return SessionStep.OWNER_NAME;
     if (!formData.business_field) return SessionStep.BUSINESS_FIELD;
@@ -255,10 +262,10 @@ export class SessionService {
   public async getAllKYCApplications(): Promise<KYCListResponse[]> {
     try {
       const result = await this.db.query(`
-      SELECT  *
-      FROM kyc_applications 
-      ORDER BY created_at DESC
-    `);
+    SELECT *, is_processed, province_name, city_name
+    FROM kyc_applications 
+    ORDER BY created_at DESC
+  `);
 
       return result.rows as KYCListResponse[];
     } catch (error) {
@@ -544,6 +551,32 @@ export class SessionService {
     } catch (error) {
       this.logger.error("Error getting KYC application by telegram ID:", {
         telegramId,
+        error,
+      });
+      throw error;
+    }
+  }
+
+  public async updateProcessedStatus(
+    id: number,
+    isProcessed: boolean
+  ): Promise<void> {
+    try {
+      await this.db.query(
+        `UPDATE kyc_applications 
+       SET is_processed = $1, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $2`,
+        [isProcessed, id]
+      );
+
+      this.logger.info("Application processed status updated:", {
+        id,
+        isProcessed,
+      });
+    } catch (error) {
+      this.logger.error("Error updating processed status:", {
+        id,
+        isProcessed,
         error,
       });
       throw error;

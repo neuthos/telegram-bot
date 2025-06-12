@@ -1,9 +1,11 @@
 import {BankService} from "../services/BankService";
 import {BusinessFieldService} from "../services/BusinessFieldService";
+import {ProvinceService} from "../services/ProvinceService";
 
 export class MessageTemplates {
   private botName: string;
   private bankService = new BankService();
+  private provinceService = new ProvinceService();
 
   constructor() {
     this.botName = process.env.BOT_NAME || "KYC Registration Bot";
@@ -86,7 +88,7 @@ Status: ${statusText}
   public generateStartRegistrationMessage(): string {
     return `✏️ Mulai Pendaftaran KYC
 
-📝 Langkah 1/15: Nama Agen
+📝 Langkah 1/17: Nama Agen
 
 Silakan masukkan nama agen:
 Contoh: Vifa CELL
@@ -103,6 +105,14 @@ Contoh: Vifa CELL
       agent_name: {
         text: "nama agen",
         example: "Contoh: Vifa CELL",
+      },
+      province_selection: {
+        text: "provinsi",
+        example: "Pilih dari daftar yang akan ditampilkan",
+      },
+      city_selection: {
+        text: "kabupaten/kota",
+        example: "Pilih dari daftar yang akan ditampilkan",
       },
       agent_address: {
         text: "alamat agen",
@@ -168,7 +178,7 @@ Contoh: Vifa CELL
 
     return `⏩ Melanjutkan pendaftaran KYC...
 
-📝 Langkah ${stepNumber}/15: ${stepInfo?.text || nextStep}
+📝 Langkah ${stepNumber}/17: ${stepInfo?.text || nextStep}
 
 Silakan masukkan ${stepInfo?.text || nextStep}:
 ${stepInfo?.example || ""}
@@ -179,21 +189,23 @@ ${stepInfo?.example || ""}
   private getStepNumber(step: string): number {
     const stepNumbers: {[key: string]: number} = {
       agent_name: 1,
-      agent_address: 2,
-      owner_name: 3,
-      business_field: 4,
-      pic_name: 5,
-      pic_phone: 6,
-      id_card_number: 7,
-      tax_number: 8,
-      account_holder_name: 9,
-      bank_name: 10,
-      account_number: 11,
-      signature_initial: 12,
-      location_photos: 13,
-      bank_book_photo: 14,
-      id_card_photo: 15,
-      terms_conditions: 16,
+      province_selection: 2,
+      city_selection: 3,
+      agent_address: 4,
+      owner_name: 5,
+      business_field: 6,
+      pic_name: 7,
+      pic_phone: 8,
+      id_card_number: 9,
+      tax_number: 10,
+      account_holder_name: 11,
+      bank_name: 12,
+      account_number: 13,
+      signature_initial: 14,
+      location_photos: 15,
+      bank_book_photo: 16,
+      id_card_photo: 17,
+      terms_conditions: 18,
     };
     return stepNumbers[step] || 0;
   }
@@ -205,6 +217,8 @@ ${stepInfo?.example || ""}
   ): string {
     const fieldNames: {[key: string]: string} = {
       agent_name: "Nama Agen",
+      province_selection: "Provinsi",
+      city_selection: "Kabupaten/Kota",
       agent_address: "Alamat Agen",
       owner_name: "Nama Pemilik",
       business_field: "Bidang Usaha",
@@ -219,6 +233,14 @@ ${stepInfo?.example || ""}
     };
 
     const nextFieldTexts: {[key: string]: {text: string; example: string}} = {
+      province_selection: {
+        text: "provinsi",
+        example: "Pilih dari daftar yang akan ditampilkan",
+      },
+      city_selection: {
+        text: "kabupaten/kota",
+        example: "Pilih dari daftar yang akan ditampilkan",
+      },
       agent_address: {
         text: "alamat agen",
         example: "Contoh: Jalan Beringin Utara No. 123, Ternate Baru",
@@ -283,11 +305,11 @@ ${stepInfo?.example || ""}
       nextFieldTexts[nextField]
     ) {
       const nextInfo = nextFieldTexts[nextField];
-      message += `📝 Langkah ${nextStep}/15: ${nextInfo.text}\n\n`;
+      message += `📝 Langkah ${nextStep}/17: ${nextInfo.text}\n\n`;
       message += `Silakan masukkan ${nextInfo.text}:\n`;
       message += `${nextInfo.example}\n\n`;
     } else if (nextField === "business_field") {
-      message += `📝 Langkah ${nextStep}/15: bidang usaha\n\n`;
+      message += `📝 Langkah ${nextStep}/17: bidang usaha\n\n`;
     }
 
     message += `/menu - 🏠 Kembali ke menu utama`;
@@ -369,6 +391,8 @@ Apakah Anda menyetujui syarat dan ketentuan di atas?
 
 👤 **DATA AGEN & PEMILIK**
 - Nama Agen: ${formData.agent_name}
+- Provinsi: ${formData.province_name}
+- Kabupaten/Kota: ${formData.city_name}
 - Alamat Agen: ${formData.agent_address}
 - Nama Pemilik: ${formData.owner_name}
 - Bidang Usaha: ${formData.business_field}
@@ -428,6 +452,8 @@ Terima kasih telah melengkapi data KYC! 🙏`;
 
 👤 **DATA AGEN & PEMILIK**
 - Nama Agen: ${application.agent_name}
+- Provinsi: ${application.province_name || "Tidak tersedia"}
+- Kabupaten/Kota: ${application.city_name || "Tidak tersedia"}
 - Alamat Agen: ${application.agent_address}
 - Nama Pemilik: ${application.owner_name}
 - Bidang Usaha: ${application.business_field}
@@ -601,9 +627,7 @@ Ketik sesuai format di atas (dengan tanda /)`;
 Silakan ketik nama bank Anda dengan format:
 /Bank Central Asia
 /Bank Mandiri
-dst.
-
-(Format: /NamaBank)`;
+dst.`;
     }
   }
 
@@ -661,5 +685,44 @@ Apakah Anda setuju untuk melakukan pembubuhan e-meterai pada dokumen KYC Anda?
 ✅ Dokumen KYC Anda sekarang telah memiliki validitas hukum penuh dengan e-meterai digital.
 
 Terima kasih telah melengkapi proses KYC! 🙏`;
+  }
+
+  public async generateProvinceSelectionMessage(): Promise<string> {
+    try {
+      const provinces = await this.provinceService.getAllProvinces();
+      const provinceOptions = provinces
+        .map((province) => `/${province.code} - ${province.name}`)
+        .join("\n");
+
+      return `📍 *Pilih Provinsi*
+
+Silakan pilih provinsi Anda:
+
+${provinceOptions}
+`;
+    } catch (error) {
+      return "📍 *Pilih Provinsi*\n\nTerjadi kesalahan memuat data provinsi.";
+    }
+  }
+
+  public async generateCitySelectionMessage(
+    provinceCode: string
+  ): Promise<string> {
+    try {
+      const cities = await this.provinceService.getCitiesByProvince(
+        provinceCode
+      );
+      const cityOptions = cities
+        .map((city) => `/${city.code} - ${city.name}`)
+        .join("\n");
+
+      return `🏙️ *Pilih Kab/Kota*
+
+Silakan pilih kabupaten/kota Anda:
+
+${cityOptions}`;
+    } catch (error) {
+      return "🏙️ *Pilih Kab/Kota*\n\nTerjadi kesalahan memuat data kota.";
+    }
   }
 }

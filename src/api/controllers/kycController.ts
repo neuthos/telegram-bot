@@ -1089,6 +1089,55 @@ Anda dapat mendaftar ulang dengan data yang benar menggunakan /daftar`;
       throw error;
     }
   }
+
+  public updateProcessedStatus = async (
+    req: Request,
+    res: Response<ApiResponse>
+  ): Promise<void> => {
+    try {
+      const {id} = req.params;
+      const {is_processed} = req.body;
+
+      if (typeof is_processed !== "boolean") {
+        res.status(400).json({
+          success: false,
+          message: "is_processed must be a boolean value",
+        });
+        return;
+      }
+
+      const application = await this.sessionService.getKYCApplicationById(
+        parseInt(id)
+      );
+      if (!application) {
+        res.status(404).json({
+          success: false,
+          message: "Application not found",
+        });
+        return;
+      }
+
+      await this.sessionService.updateProcessedStatus(
+        parseInt(id),
+        is_processed
+      );
+
+      res.json({
+        success: true,
+        message: "Processed status updated successfully",
+        data: {
+          id: parseInt(id),
+          is_processed,
+        },
+      });
+    } catch (error) {
+      this.logger.error("Error updating processed status:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to update processed status",
+      });
+    }
+  };
 }
 
 export const kycController = new KYCController();

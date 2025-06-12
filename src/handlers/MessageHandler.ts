@@ -6,6 +6,7 @@ import {Logger} from "../config/logger";
 import {MessageTemplates} from "../messages/MessagesTemplates";
 import {SessionStep, KYCApplication} from "../types";
 import {BusinessFieldService} from "../services/BusinessFieldService";
+import {ProvinceService} from "../services/ProvinceService";
 
 export class MessageHandler {
   private sessionService = new SessionService();
@@ -14,6 +15,7 @@ export class MessageHandler {
   private logger = Logger.getInstance();
   private messages = new MessageTemplates();
   private businessFieldService = new BusinessFieldService();
+  private provinceService = new ProvinceService();
 
   public async handleMessage(
     bot: TelegramBot,
@@ -282,6 +284,27 @@ export class MessageHandler {
             );
             return;
           }
+
+          if (
+            session &&
+            session.current_step === SessionStep.PROVINCE_SELECTION
+          ) {
+            await this.handleProvinceSelection(
+              bot,
+              telegramId,
+              command.substring(1)
+            );
+            return;
+          }
+
+          if (session && session.current_step === SessionStep.CITY_SELECTION) {
+            await this.handleCitySelection(
+              bot,
+              telegramId,
+              command.substring(1)
+            );
+            return;
+          }
         }
         await this.handleUnknownMessage(bot, telegramId);
     }
@@ -430,6 +453,12 @@ export class MessageHandler {
         break;
       case SessionStep.CONFIRMATION:
         await this.handleConfirmation(bot, telegramId, text!, session, msg);
+        break;
+      case SessionStep.PROVINCE_SELECTION:
+        await this.handleProvinceInput(bot, telegramId, text!, session);
+        break;
+      case SessionStep.CITY_SELECTION:
+        await this.handleCityInput(bot, telegramId, text!, session);
         break;
       default:
         await this.handleUnknownMessage(bot, telegramId);
@@ -795,7 +824,7 @@ export class MessageHandler {
     session.form_data.agent_name = text;
     await this.sessionService.createOrUpdateSession({
       telegram_id: telegramId,
-      current_step: SessionStep.AGENT_ADDRESS,
+      current_step: SessionStep.PROVINCE_SELECTION,
       form_data: session.form_data,
     });
 
@@ -804,9 +833,13 @@ export class MessageHandler {
       this.messages.generateFieldSuccessMessage(
         "agent_name",
         text,
-        "agent_address"
+        "province_selection"
       )
     );
+
+    const provinceMessage =
+      await this.messages.generateProvinceSelectionMessage();
+    await bot.sendMessage(telegramId, provinceMessage);
   }
 
   private async handleAgentAddressInput(
@@ -1507,5 +1540,128 @@ export class MessageHandler {
         "❌ Terjadi kesalahan dalam proses e-meterai. Silakan hubungi admin."
       );
     }
+  }
+
+  private async handleProvinceSelection(
+    bot: TelegramBot,
+    telegramId: number,
+    provinceCode: string
+  ): Promise<void> {
+    const session = await this.sessionService.getActiveSession(telegramId);
+    if (!session || session.current_step !== SessionStep.PROVINCE_SELECTION) {
+      await this.handleUnknownMessage(bot, telegramId);
+      return;
+    }
+
+    const province = await this.provinceService.getProvinceByCode(provinceCode);
+    if (!province) {
+      await bot.sendMessage(
+        telegramId,
+        `❌ Provinsi dengan kode "${provinceCode}" tidak ditemukan. Silakan pilih dari daftar yang tersedia.`
+      );
+      const provinceMessage =
+        await this.messages.generateProvinceSelectionMessage();
+      await bot.sendMessage(telegramId, provinceMessage);
+      return;
+    }
+
+    session.form_data.province_code = province.code;
+    session.form_data.province_name = province.name;
+
+    await this.sessionService.createOrUpdateSession({
+      telegram_id: telegramId,
+      current_step: SessionStep.CITY_SELECTION,
+      form_data: session.form_data,
+    });
+
+    await bot.sendMessage(
+      telegramId,
+      this.messages.generateFieldSuccessMessage(
+        "province_selection",
+        province.name,
+        "city_selection"
+      )
+    );
+
+    const cityMessage = await this.messages.generateCitySelectionMessage(
+      province.code
+    );
+    await bot.sendMessage(telegramId, cityMessage);
+  }
+
+  private async handleCitySelection(
+    bot: TelegramBot,
+    telegramId: number,
+    cityCode: string
+  ): Promise<void> {
+    const session = await this.sessionService.getActiveSession(telegramId);
+    if (!session || session.current_step !== SessionStep.CITY_SELECTION) {
+      await this.handleUnknownMessage(bot, telegramId);
+      return;
+    }
+
+    const city = await this.provinceService.getCityByCode(cityCode);
+    if (!city) {
+      await bot.sendMessage(
+        telegramId,
+        `❌ Kab/Kota dengan kode "${cityCode}" tidak ditemukan. Silakan pilih dari daftar yang tersedia.`
+      );
+      const cityMessage = await this.messages.generateCitySelectionMessage(
+        session.form_data.province_code!
+      );
+      await bot.sendMessage(telegramId, cityMessage);
+      return;
+    }
+
+    session.form_data.city_code = city.code;
+    session.form_data.city_name = city.name;
+
+    await this.sessionService.createOrUpdateSession({
+      telegram_id: telegramId,
+      current_step: SessionStep.AGENT_ADDRESS,
+      form_data: session.form_data,
+    });
+
+    await bot.sendMessage(
+      telegramId,
+      this.messages.generateFieldSuccessMessage(
+        "city_selection",
+        city.name,
+        "agent_address"
+      )
+    );
+  }
+
+  private async handleProvinceInput(
+    bot: TelegramBot,
+    telegramId: number,
+    text: string,
+    session: any
+  ): Promise<void> {
+    if (!text.startsWith("/")) {
+      const provinceMessage =
+        await this.messages.generateProvinceSelectionMessage();
+      await bot.sendMessage(telegramId, provinceMessage);
+      return;
+    }
+
+    await this.handleProvinceSelection(bot, telegramId, text.substring(1));
+  }
+
+  private async handleCityInput(
+    bot: TelegramBot,
+    telegramId: number,
+    text: string,
+    session: any
+  ): Promise<void> {
+    if (!text.startsWith("/")) {
+      const cityMessage = await this.messages.generateCitySelectionMessage(
+        session.form_data.province_code!
+      );
+      await bot.sendMessage(telegramId, cityMessage);
+      return;
+    }
+
+    await this.handleCitySelection(bot, telegramId, text.substring(1));
   }
 }

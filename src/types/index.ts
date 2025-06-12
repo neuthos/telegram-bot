@@ -52,6 +52,11 @@ export interface KYCApplication {
   stamped_pdf_url?: string;
   stamped_by?: string;
   stamped_at?: Date;
+  is_processed?: boolean;
+  province_code?: string;
+  province_name?: string;
+  city_code?: string;
+  city_name?: string;
 
   created_at?: Date;
   updated_at?: Date;
@@ -84,6 +89,10 @@ export interface FormData {
   bank_book_photo?: string;
   id_card_photo?: string;
   terms_accepted?: boolean;
+  province_code?: string;
+  province_name?: string;
+  city_code?: string;
+  city_name?: string;
 }
 
 export enum SessionStep {
@@ -112,6 +121,9 @@ export enum SessionStep {
   // Terms and Confirmation
   TERMS_CONDITIONS = "terms_conditions",
   CONFIRMATION = "confirmation",
+
+  PROVINCE_SELECTION = "province_selection",
+  CITY_SELECTION = "city_selection",
 }
 
 export interface ApiResponse<T = any> {
@@ -131,6 +143,7 @@ export interface KYCListItem {
   pdf_url?: string;
   stamped_pdf_url?: string;
   remark?: string;
+  is_processed: boolean;
 }
 
 export interface RejectRequest {
@@ -141,10 +154,13 @@ export interface KYCListResponse {
   id: number;
   telegram_id: number;
   agent_name: string;
+  province_name?: string;
+  city_name?: string;
   pic_name: string;
   pic_phone: string;
   status: "draft" | "confirmed" | "rejected";
   emeterai_status: EmeteraiStatus;
+  is_processed: boolean;
   created_at: Date;
   pdf_url?: string;
   stamped_pdf_url?: string;
