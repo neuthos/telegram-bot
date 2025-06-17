@@ -22,14 +22,6 @@ router.post("/:id/stamp-emeterai", kycController.stampWithEmeterai);
 router.get("/:id/stamped-pdf", kycController.downloadStampedPdf);
 router.get("/:id/emeterai-status", kycController.getEmeteraiStatus);
 
-router.post("/:id/stamp-emeterai", kycController.stampWithEmeterai);
-router.get("/:id/stamped-pdf", kycController.downloadStampedPdf);
-router.get("/:id/emeterai-status", kycController.getEmeteraiStatus);
-
-router.post("/:id/stamp-emeterai", kycController.stampWithEmeterai);
-router.get("/:id/stamped-pdf", kycController.downloadStampedPdf);
-router.get("/:id/emeterai-status", kycController.getEmeteraiStatus);
-
 router.get("/processing-progress", kycController.getProcessingProgress);
 
 router.put("/:id/processed-status", kycController.updateProcessedStatus);
