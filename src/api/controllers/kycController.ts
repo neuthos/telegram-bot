@@ -14,11 +14,13 @@ import {
 } from "../../types";
 import TelegramBot from "node-telegram-bot-api";
 import {MessageTemplates} from "../../messages/MessagesTemplates";
+import {ExcelExportService} from "../../services/ExcelExportService";
 
 export class KYCController {
   private sessionService = new SessionService();
   private pdfService = new PDFService();
   private logger = Logger.getInstance();
+  private excelExportService = new ExcelExportService();
 
   public getList = async (
     req: AuthRequest,
@@ -733,42 +735,6 @@ export class KYCController {
     }
   };
 
-  public getEmeteraiStatus = async (
-    req: Request,
-    res: Response<ApiResponse>
-  ): Promise<void> => {
-    try {
-      const {id} = req.params;
-
-      const application = await this.sessionService.getKYCApplicationById(
-        parseInt(id)
-      );
-      if (!application) {
-        res
-          .status(404)
-          .json({success: false, message: "Application not found"});
-        return;
-      }
-
-      res.json({
-        success: true,
-        data: {
-          id: parseInt(id),
-          emeterai_status: application.emeterai_status,
-          emeterai_transaction_id: application.emeterai_transaction_id,
-          stamped_pdf_url: application.stamped_pdf_url,
-          stamped_by: application.stamped_by,
-          stamped_at: application.stamped_at,
-        },
-      });
-    } catch (error) {
-      this.logger.error("Error getting E-meterai status:", error);
-      res
-        .status(500)
-        .json({success: false, message: "Failed to get E-meterai status"});
-    }
-  };
-
   public bulkStampWithEmeterai = async (
     req: AuthRequest,
     res: Response<ApiResponse>
@@ -854,7 +820,6 @@ export class KYCController {
     }
   };
 
-  // Helper method untuk async processing
   private async processStampingAsync(
     applicationId: number,
     stampedBy: string,
@@ -1139,6 +1104,275 @@ Anda dapat mendaftar ulang dengan data yang benar menggunakan /daftar`;
       res.status(500).json({
         success: false,
         message: "Failed to update processed status",
+      });
+    }
+  };
+
+  public exportExcel = async (
+    req: AuthRequest,
+    res: Response<ApiResponse>
+  ): Promise<void> => {
+    try {
+      const partnerId = req.partnerId!;
+
+      const applications = await this.sessionService.getAllKYCApplications(
+        partnerId
+      );
+
+      const confirmedApplications: any[] = applications.filter(
+        (app) => app.status === "confirmed"
+      );
+
+      if (confirmedApplications.length === 0) {
+        res.status(400).json({
+          success: false,
+          message: "No confirmed applications to export",
+        });
+        return;
+      }
+
+      const excelUrl = await this.excelExportService.exportToExcel(
+        confirmedApplications
+      );
+
+      res.json({
+        success: true,
+        message: "Excel export completed successfully",
+        data: {
+          excel_url: excelUrl,
+          record_count: confirmedApplications.length,
+          export_date: new Date().toISOString(),
+        },
+      });
+    } catch (error) {
+      this.logger.error("Error exporting Excel:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to export Excel file",
+      });
+    }
+  };
+
+  // src/api/controllers/kycController.ts - Complete controller with new methods
+
+  // Tambahkan methods yang missing:
+
+  public updateArtajasaReview = async (
+    req: Request,
+    res: Response<ApiResponse>
+  ): Promise<void> => {
+    try {
+      const {id} = req.params;
+      const {is_reviewed} = req.body;
+
+      if (typeof is_reviewed !== "boolean") {
+        res.status(400).json({
+          success: false,
+          message: "is_reviewed must be a boolean value",
+        });
+        return;
+      }
+
+      const application = await this.sessionService.getKYCApplicationById(
+        parseInt(id)
+      );
+
+      if (!application) {
+        res.status(404).json({
+          success: false,
+          message: "Application not found",
+        });
+        return;
+      }
+
+      await this.sessionService.updateArtajasaReview(parseInt(id), is_reviewed);
+
+      res.json({
+        success: true,
+        message: "Artajasa review status updated successfully",
+        data: {
+          id: parseInt(id),
+          is_reviewed_by_artajasa: is_reviewed,
+        },
+      });
+    } catch (error) {
+      this.logger.error("Error updating Artajasa review status:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to update Artajasa review status",
+      });
+    }
+  };
+
+  public updateEmeteraiConsent = async (
+    req: Request,
+    res: Response<ApiResponse>
+  ): Promise<void> => {
+    try {
+      const {id} = req.params;
+      const {consent} = req.body;
+
+      if (typeof consent !== "boolean") {
+        res.status(400).json({
+          success: false,
+          message: "consent must be a boolean value",
+        });
+        return;
+      }
+
+      await this.sessionService.updateEmeteraiConsent(parseInt(id), consent);
+
+      res.json({
+        success: true,
+        message: "E-meterai consent updated successfully",
+        data: {
+          id: parseInt(id),
+          user_emeterai_consent: consent,
+        },
+      });
+    } catch (error) {
+      this.logger.error("Error updating e-meterai consent:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to update e-meterai consent",
+      });
+    }
+  };
+
+  public getEmeteraiStatus = async (
+    req: Request,
+    res: Response<ApiResponse>
+  ): Promise<void> => {
+    try {
+      const {id} = req.params;
+
+      const application = await this.sessionService.getKYCApplicationById(
+        parseInt(id)
+      );
+
+      if (!application) {
+        res.status(404).json({
+          success: false,
+          message: "Application not found",
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: {
+          id: application.id,
+          emeterai_status: application.emeterai_status,
+          emeterai_transaction_id: application.emeterai_transaction_id,
+          emeterai_sn: application.emeterai_sn,
+          stamped_pdf_url: application.stamped_pdf_url,
+          stamped_by: application.stamped_by,
+          stamped_at: application.stamped_at,
+          user_emeterai_consent: application.user_emeterai_consent,
+        },
+      });
+    } catch (error) {
+      this.logger.error("Error getting e-meterai status:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to get e-meterai status",
+      });
+    }
+  };
+
+  public getById = async (
+    req: Request,
+    res: Response<ApiResponse>
+  ): Promise<void> => {
+    try {
+      const {id} = req.params;
+
+      const application = await this.sessionService.getKYCApplicationById(
+        parseInt(id)
+      );
+
+      if (!application) {
+        res.status(404).json({
+          success: false,
+          message: "Application not found",
+        });
+        return;
+      }
+
+      const photos = await this.sessionService.getApplicationPhotos(
+        parseInt(id)
+      );
+
+      res.json({
+        success: true,
+        data: {
+          application,
+          photos,
+        },
+      });
+    } catch (error) {
+      this.logger.error("Error getting application:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to get application",
+      });
+    }
+  };
+
+  public bulkExportExcel = async (
+    req: AuthRequest,
+    res: Response<ApiResponse>
+  ): Promise<void> => {
+    try {
+      const {applicationIds} = req.body;
+      const partnerId = req.partnerId!;
+
+      let applications: any[];
+
+      if (applicationIds && Array.isArray(applicationIds)) {
+        // Export specific applications
+        applications = [];
+        for (const id of applicationIds) {
+          const app = await this.sessionService.getKYCApplicationById(id);
+          if (app && app.status === "confirmed") {
+            applications.push(app);
+          }
+        }
+      } else {
+        const allApplications = await this.sessionService.getAllKYCApplications(
+          partnerId
+        );
+        applications = allApplications.filter(
+          (app) => app.status === "confirmed"
+        );
+      }
+
+      if (applications.length === 0) {
+        res.status(400).json({
+          success: false,
+          message: "No confirmed applications to export",
+        });
+        return;
+      }
+
+      const excelUrl = await this.excelExportService.exportToExcel(
+        applications
+      );
+
+      res.json({
+        success: true,
+        message: "Excel export completed successfully",
+        data: {
+          excel_url: excelUrl,
+          record_count: applications.length,
+          export_date: new Date().toISOString(),
+        },
+      });
+    } catch (error) {
+      this.logger.error("Error exporting Excel:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to export Excel file",
       });
     }
   };

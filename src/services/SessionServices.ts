@@ -162,12 +162,12 @@ export class SessionService {
       const applicationResult = await client.query(
         `INSERT INTO kyc_applications (
          partner_id, telegram_id, username, first_name, last_name,
-         agent_name, agent_address, owner_name, business_field,
-         pic_name, pic_phone, id_card_number, tax_number,
-         account_holder_name, bank_name, account_number,
-         signature_initial, province_code, province_name,
-         city_code, city_name, status
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+         full_name, address, religion, occupation, postal_code, id_card_number,
+         agent_name, owner_name, business_field, pic_name, pic_phone,
+         tax_number, account_holder_name, bank_name, account_number,
+         province_code, province_name, city_code, city_name, status,
+         is_processed, is_reviewed_by_artajasa
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
        RETURNING id`,
         [
           session.partner_id,
@@ -175,35 +175,41 @@ export class SessionService {
           session.username,
           session.first_name,
           session.last_name,
+          session.form_data.full_name, // dari OCR
+          session.form_data.address, // dari OCR
+          session.form_data.religion, // dari OCR
+          session.form_data.occupation, // dari OCR
+          session.form_data.postal_code, // dari OCR
+          session.form_data.id_card_number, // dari OCR
           session.form_data.agent_name,
-          session.form_data.agent_address,
           session.form_data.owner_name,
           session.form_data.business_field,
           session.form_data.pic_name,
           session.form_data.pic_phone,
-          session.form_data.id_card_number,
           session.form_data.tax_number,
           session.form_data.account_holder_name,
           session.form_data.bank_name,
           session.form_data.account_number,
-          session.form_data.signature_initial,
           session.form_data.province_code,
           session.form_data.province_name,
           session.form_data.city_code,
           session.form_data.city_name,
           "draft",
+          false, // is_processed
+          false, // is_reviewed_by_artajasa
         ]
       );
 
       const applicationId = applicationResult.rows[0].id;
 
+      // Insert photos dengan signature photo
       const photos = this.preparePhotos(applicationId, session);
 
       for (const photo of photos) {
         await client.query(
           `INSERT INTO kyc_photos 
-          (partner_id, application_id, photo_type, file_url, file_name)
-          VALUES ($1, $2, $3, $4, $5)`,
+        (partner_id, application_id, photo_type, file_url, file_name)
+        VALUES ($1, $2, $3, $4, $5)`,
           [
             session.partner_id,
             photo.application_id,
@@ -224,9 +230,8 @@ export class SessionService {
       await this.cache.delete(
         `session:${session.partner_id}:${session.telegram_id}`
       );
-      await this.cache.delete(
-        `idcard:${session.partner_id}:${session.form_data.id_card_number}`
-      );
+
+      return applicationId;
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;
@@ -238,6 +243,27 @@ export class SessionService {
   private preparePhotos(applicationId: number, session: UserSession): any[] {
     const photos = [];
 
+    // ID Card photo
+    if (session.form_data.id_card_photo) {
+      photos.push({
+        application_id: applicationId,
+        photo_type: "id_card",
+        file_url: session.form_data.id_card_photo,
+        file_name: session.form_data.id_card_photo.split("/").pop() || "",
+      });
+    }
+
+    // Signature photo (processed)
+    if (session.form_data.signature_photo) {
+      photos.push({
+        application_id: applicationId,
+        photo_type: "signature",
+        file_url: session.form_data.signature_photo,
+        file_name: session.form_data.signature_photo.split("/").pop() || "",
+      });
+    }
+
+    // Location photos
     if (session.form_data.location_photos?.length) {
       for (const photo of session.form_data.location_photos) {
         photos.push({
@@ -249,21 +275,13 @@ export class SessionService {
       }
     }
 
+    // Bank book photo
     if (session.form_data.bank_book_photo) {
       photos.push({
         application_id: applicationId,
         photo_type: "bank_book",
         file_url: session.form_data.bank_book_photo,
         file_name: session.form_data.bank_book_photo.split("/").pop() || "",
-      });
-    }
-
-    if (session.form_data.id_card_photo) {
-      photos.push({
-        application_id: applicationId,
-        photo_type: "id_card",
-        file_url: session.form_data.id_card_photo,
-        file_name: session.form_data.id_card_photo.split("/").pop() || "",
       });
     }
 
@@ -288,27 +306,35 @@ export class SessionService {
     }
   }
 
-  async getNextStep(formData: FormData): Promise<SessionStep> {
+  public async getNextStep(formData: FormData): Promise<SessionStep> {
+    // Flow baru: KTP photo pertama untuk OCR
+    if (!formData.id_card_photo) return SessionStep.ID_CARD_PHOTO;
+
+    // Setelah OCR KTP, data yang tidak ada di KTP perlu diisi manual
     if (!formData.agent_name) return SessionStep.AGENT_NAME;
-    if (!formData.province_code) return SessionStep.PROVINCE_SELECTION;
-    if (!formData.city_code) return SessionStep.CITY_SELECTION;
-    if (!formData.agent_address) return SessionStep.AGENT_ADDRESS;
     if (!formData.owner_name) return SessionStep.OWNER_NAME;
     if (!formData.business_field) return SessionStep.BUSINESS_FIELD;
     if (!formData.pic_name) return SessionStep.PIC_NAME;
     if (!formData.pic_phone) return SessionStep.PIC_PHONE;
-    if (!formData.id_card_number) return SessionStep.ID_CARD_NUMBER;
+
+    // Tax number opsional
     if (formData.tax_number === undefined) return SessionStep.TAX_NUMBER;
+
+    // Bank data
     if (!formData.account_holder_name) return SessionStep.ACCOUNT_HOLDER_NAME;
     if (!formData.bank_name) return SessionStep.BANK_NAME;
     if (!formData.account_number) return SessionStep.ACCOUNT_NUMBER;
-    if (!formData.signature_initial) return SessionStep.SIGNATURE_INITIAL;
+
+    // Photo uploads (signature menggantikan initial)
+    if (!formData.signature_photo) return SessionStep.SIGNATURE_PHOTO;
     if (!formData.location_photos || formData.location_photos.length === 0)
       return SessionStep.LOCATION_PHOTOS;
     if (!formData.bank_book_photo) return SessionStep.BANK_BOOK_PHOTO;
-    if (!formData.id_card_photo) return SessionStep.ID_CARD_PHOTO;
+
+    // Final steps
     if (formData.terms_accepted === undefined)
       return SessionStep.TERMS_CONDITIONS;
+
     return SessionStep.CONFIRMATION;
   }
 
@@ -605,5 +631,49 @@ export class SessionService {
       "UPDATE kyc_applications SET is_processed = $1 WHERE id = $2 AND partner_id = $3",
       [isProcessed, id, partnerId]
     );
+  }
+
+  public async updateArtajasaReview(
+    id: number,
+    isReviewed: boolean
+  ): Promise<void> {
+    try {
+      await this.db.query(
+        "UPDATE kyc_applications SET is_reviewed_by_artajasa = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+        [isReviewed, id]
+      );
+
+      this.logger.info("Artajasa review status updated:", {
+        id,
+        isReviewed,
+      });
+    } catch (error) {
+      this.logger.error("Error updating Artajasa review status:", {
+        id,
+        isReviewed,
+        error,
+      });
+      throw error;
+    }
+  }
+
+  public async getBulkEmeteraiStatus(applicationIds: number[]): Promise<any[]> {
+    try {
+      const result = await this.db.query(
+        `SELECT id, emeterai_status, emeterai_transaction_id, emeterai_sn, 
+              stamped_pdf_url, user_emeterai_consent
+       FROM kyc_applications 
+       WHERE id = ANY($1)`,
+        [applicationIds]
+      );
+
+      return result.rows;
+    } catch (error) {
+      this.logger.error("Error getting bulk e-meterai status:", {
+        applicationIds,
+        error,
+      });
+      throw error;
+    }
   }
 }

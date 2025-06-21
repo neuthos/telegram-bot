@@ -1,92 +1,96 @@
-// src/services/FileService.ts
+// src/services/FileService.ts - Update untuk compressed images
+
 import TelegramBot from "node-telegram-bot-api";
-import axios from "axios";
-import FormData from "form-data";
 import {Logger} from "../config/logger";
 import {CDNService} from "./CDNService";
-import path from "path";
 
 export class FileService {
-  private cdnService: CDNService;
   private logger = Logger.getInstance();
+  private cdnService = new CDNService();
 
-  constructor() {
-    this.cdnService = new CDNService();
-  }
-
-  async downloadAndUploadPhoto(
+  public async downloadAndUploadPhoto(
     bot: TelegramBot,
     fileId: string,
-    folderPath: string,
-    photoType: string
-  ): Promise<{url: string; fileName: string}> {
+    telegramId: number,
+    photoType: string,
+    useCompressed: boolean = true
+  ): Promise<{fileUrl: string; fileName: string; fileSize: number}> {
     try {
       const file = await bot.getFile(fileId);
 
-      // Get token from bot instance
-      const botInfo = bot as any;
-      const token = botInfo.token || botInfo._token || botInfo.options?.token;
-
-      if (!token) {
-        throw new Error("Bot token not accessible");
+      if (!file.file_path) {
+        throw new Error("File path not available");
       }
 
-      const fileUrl = `https://api.telegram.org/file/bot${token}/${file.file_path}`;
+      const extension = file.file_path.split(".").pop() || "jpg";
+      const fileName = `${photoType}_${telegramId}_${Date.now()}.${extension}`;
 
-      const response = await axios.get(fileUrl, {
-        responseType: "arraybuffer",
-      });
+      const fileStream = bot.getFileStream(fileId);
+      const chunks: Buffer[] = [];
 
-      const buffer = Buffer.from(response.data);
-      const extension = path.extname(file.file_path || ".jpg");
-      const fileName = `${photoType}_${Date.now()}${extension}`;
+      for await (const chunk of fileStream) {
+        chunks.push(chunk);
+      }
 
-      const uploadedUrl = await this.cdnService.uploadFile(
-        buffer,
+      const fileBuffer = Buffer.concat(chunks);
+      const mimeType = `image/${extension}`;
+
+      const fileUrl = await this.cdnService.uploadFile(
+        fileBuffer,
         fileName,
-        `image/${extension.substring(1)}`,
-        folderPath
+        mimeType
       );
 
-      this.logger.info("Photo uploaded successfully", {
-        fileId,
+      this.logger.info("Photo uploaded successfully:", {
+        telegramId,
+        photoType,
         fileName,
-        uploadedUrl,
-        folderPath,
+        fileUrl,
+        fileSize: fileBuffer.length,
+        compressed: useCompressed,
       });
 
       return {
-        url: uploadedUrl,
+        fileUrl,
         fileName,
+        fileSize: fileBuffer.length,
       };
     } catch (error) {
-      this.logger.error("Error downloading/uploading photo:", error);
+      this.logger.error("Error uploading photo:", {
+        telegramId,
+        photoType,
+        fileId,
+        error,
+      });
       throw error;
     }
   }
 
-  async downloadFile(bot: TelegramBot, fileId: string): Promise<Buffer> {
-    try {
-      const file = await bot.getFile(fileId);
-
-      // Get token from bot instance
-      const botInfo = bot as any;
-      const token = botInfo.token || botInfo._token || botInfo.options?.token;
-
-      if (!token) {
-        throw new Error("Bot token not accessible");
-      }
-
-      const fileUrl = `https://api.telegram.org/file/bot${token}/${file.file_path}`;
-
-      const response = await axios.get(fileUrl, {
-        responseType: "arraybuffer",
-      });
-
-      return Buffer.from(response.data);
-    } catch (error) {
-      this.logger.error("Error downloading file:", error);
-      throw error;
+  // Method untuk ambil compressed photo dari telegram
+  public getCompressedPhotoFileId(photoSizes: TelegramBot.PhotoSize[]): string {
+    if (photoSizes.length === 0) {
+      throw new Error("No photo sizes available");
     }
+    const sortedSizes = photoSizes.sort(
+      (a, b) => (a.file_size || 0) - (b.file_size || 0)
+    );
+
+    let selectedPhoto: TelegramBot.PhotoSize;
+
+    if (sortedSizes.length >= 3) {
+      selectedPhoto = sortedSizes[Math.floor(sortedSizes.length / 2)];
+    } else if (sortedSizes.length === 2) {
+      selectedPhoto = sortedSizes[0];
+    } else {
+      selectedPhoto = sortedSizes[0];
+    }
+
+    this.logger.info("Selected compressed photo", {
+      totalSizes: sortedSizes.length,
+      selectedSize: selectedPhoto.file_size,
+      selectedDimensions: `${selectedPhoto.width}x${selectedPhoto.height}`,
+    });
+
+    return selectedPhoto.file_id;
   }
 }

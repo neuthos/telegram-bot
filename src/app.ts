@@ -1,51 +1,118 @@
-import dotenv from "dotenv";
+// src/app.ts - Update dengan services baru
+
 import express from "express";
 import cors from "cors";
-import {BotManager} from "./services/BotManager";
-import {Logger} from "./config/logger";
+import dotenv from "dotenv";
 import kycRoutes from "./api/routes/kycRoutes";
-import fs from "fs-extra";
+import {BotManager} from "./services/BotManager";
+import {Database} from "./config/database";
+import {Logger} from "./config/logger";
 
 dotenv.config();
 
+const app = express();
+const PORT = process.env.PORT || 3000;
 const logger = Logger.getInstance();
-const botManager = new BotManager();
 
-async function initializeApp() {
-  await fs.ensureDir("logs");
-  await fs.ensureDir(process.env.UPLOAD_PATH || "uploads/kyc");
-  await fs.ensureDir(process.env.PDF_OUTPUT_PATH || "public/pdfs");
+// Middleware
+app.use(cors());
+app.use(express.json({limit: "50mb"}));
+app.use(express.urlencoded({extended: true, limit: "50mb"}));
 
-  const app = express();
-  app.use(cors());
-  app.use(express.json());
-  app.use("/api/kyc", kycRoutes);
-  app.use(
-    "/pdfs",
-    express.static(process.env.PDF_OUTPUT_PATH || "public/pdfs")
-  );
-
-  const API_PORT = process.env.API_PORT || 3000;
-  app.listen(API_PORT, () => {
-    logger.info(`API Server running on port ${API_PORT}`);
+// Health check
+app.get("/health", (req, res) => {
+  res.json({
+    status: "OK",
+    timestamp: new Date().toISOString(),
+    version: "2.0.0",
+    features: {
+      ocr_enabled: process.env.ENABLE_OCR === "true",
+      signature_processing: process.env.ENABLE_SIGNATURE_PROCESSING === "true",
+      compressed_photos: process.env.ENABLE_COMPRESSED_PHOTOS === "true",
+    },
   });
+});
 
-  await botManager.initialize();
+app.use("/api/kyc", kycRoutes);
 
-  process.on("SIGINT", async () => {
-    logger.info("Shutting down gracefully");
-    await botManager.shutdown();
-    process.exit(0);
+// Global error handler
+app.use(
+  (
+    err: any,
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction
+  ) => {
+    logger.error("Unhandled error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      ...(process.env.NODE_ENV === "development" && {error: err.message}),
+    });
+  }
+);
+
+// 404 handler
+app.use("*", (req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "Route not found",
   });
+});
 
-  process.on("SIGTERM", async () => {
-    logger.info("SIGTERM received, shutting down");
-    await botManager.shutdown();
-    process.exit(0);
-  });
+async function startServer() {
+  try {
+    // Initialize database
+    await Database.getInstance().connect();
+    logger.info("Database connected successfully");
+
+    // Initialize and start bot manager
+    const botManager = new BotManager();
+    await botManager.initialize();
+    logger.info("Bot manager initialized successfully");
+
+    // Graceful shutdown
+    process.on("SIGTERM", async () => {
+      logger.info("SIGTERM received, shutting down gracefully");
+      await botManager.shutdown();
+      await Database.getInstance().close();
+      process.exit(0);
+    });
+
+    process.on("SIGINT", async () => {
+      logger.info("SIGINT received, shutting down gracefully");
+      await botManager.shutdown();
+      await Database.getInstance().close();
+      process.exit(0);
+    });
+
+    // Start server
+    app.listen(PORT, () => {
+      logger.info(`Server running on port ${PORT}`);
+      console.log(
+        `🚀 KYC Bot Server v2.0.0 running on http://localhost:${PORT}`
+      );
+      console.log("📋 Features enabled:");
+      console.log(
+        `   • OCR Processing: ${
+          process.env.ENABLE_OCR === "true" ? "✅" : "❌"
+        }`
+      );
+      console.log(
+        `   • Signature Processing: ${
+          process.env.ENABLE_SIGNATURE_PROCESSING === "true" ? "✅" : "❌"
+        }`
+      );
+      console.log(
+        `   • Compressed Photos: ${
+          process.env.ENABLE_COMPRESSED_PHOTOS === "true" ? "✅" : "❌"
+        }`
+      );
+    });
+  } catch (error) {
+    logger.error("Failed to start server:", error);
+    process.exit(1);
+  }
 }
 
-initializeApp().catch((error) => {
-  logger.error("Failed to initialize app:", error);
-  process.exit(1);
-});
+startServer();

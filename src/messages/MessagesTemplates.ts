@@ -1,11 +1,15 @@
+// src/messages/MessagesTemplates.ts - Updated untuk flow baru
+
 import {BankService} from "../services/BankService";
 import {BusinessFieldService} from "../services/BusinessFieldService";
 import {ProvinceService} from "../services/ProvinceService";
+import {SessionStep, FormData, KYCApplication, KYCPhoto} from "../types";
 
 export class MessageTemplates {
   private botName: string;
   private bankService = new BankService();
   private provinceService = new ProvinceService();
+  private businessFieldService = new BusinessFieldService();
 
   constructor() {
     this.botName = process.env.BOT_NAME || "KYC Registration Bot";
@@ -27,7 +31,9 @@ Untuk memulai pendaftaran KYC, gunakan command:
     const statusText =
       status === "draft"
         ? "Draft (Menunggu konfirmasi admin)"
-        : "Confirmed (Sudah dikonfirmasi admin)";
+        : status === "confirmed"
+        ? "Confirmed (Sudah dikonfirmasi admin)"
+        : "Rejected (Ditolak)";
 
     return `🎉 Selamat datang kembali di ${this.botName}!
 
@@ -35,6 +41,19 @@ Anda sudah terdaftar KYC.
 Status: ${statusText}
 
 /lihat - 👁️ Lihat Data KYC
+/menu - 🏠 Menu Utama
+/help - ❓ Bantuan`;
+  }
+
+  public generateWelcomeMessageRejected(remark: string): string {
+    return `🎉 Selamat datang kembali di ${this.botName}!
+
+📋 Aplikasi KYC sebelumnya ditolak
+📝 Alasan: ${remark}
+
+Anda dapat mendaftar ulang dengan data yang benar.
+
+/daftar - 📝 Daftar KYC Ulang
 /menu - 🏠 Menu Utama
 /help - ❓ Bantuan`;
   }
@@ -56,305 +75,257 @@ Status: ${statusText}
 /lanjut - ⏩ Lanjutkan sesi pendaftaran
 
 🔸 Command Konfirmasi:
-/ya - ✅ Konfirmasi pendaftaran
-/tidak - ❌ Ulangi pendaftaran
 /setuju - ✅ Setuju syarat & ketentuan
-/tolak - ❌ Tolak syarat & ketentuan
+/tidaksetuju - ❌ Tolak syarat & ketentuan
 /skip - ⏭️ Lewati (untuk field opsional)
 
-📋 Form KYC meliputi:
-1. Data Agen & Pemilik
-2. Data PIC & Kontak
-3. Data Bank & Rekening
-4. Upload Foto Lokasi (1-4 foto)
-5. Upload Foto Dokumen (KTP, Buku Rekening)
-6. Tanda Tangan Inisial
-7. Syarat & Ketentuan
+📋 Alur Pendaftaran KYC:
+1. 📸 Upload foto KTP (OCR otomatis)
+2. 📝 Isi data agen & pemilik
+3. 💰 Isi data bank & rekening
+4. ✍️ Upload foto tanda tangan
+5. 📍 Upload foto lokasi (1-4 foto)
+6. 📄 Upload foto buku rekening
+7. ✅ Setuju syarat & ketentuan
+8. 🔍 Konfirmasi data
 
 💡 Tips:
-- Pastikan foto jelas dan terbaca
-- Gunakan /menu untuk kembali ke menu utama
-- Gunakan /lanjut untuk melanjutkan pendaftaran yang tertunda`;
+- Pastikan foto KTP jelas untuk OCR
+- Upload foto dengan pencahayaan baik
+- Foto tanda tangan akan diproses otomatis`;
   }
 
   public generateRegistrationOptionsMessage(): string {
-    return `📋 Pilih opsi pendaftaran KYC:
+    return `📋 **Pendaftaran KYC**
 
-/mulai - 🆕 Mulai pendaftaran baru
+Pilih opsi pendaftaran:
+
+Mulai Pendaftaran Baru - 🆕 Mulai dari awal
+Lanjutkan Sesi Pendaftaran - ⏩ Lanjutkan yang belum selesai
+
+Ketik pilihan Anda atau gunakan:
+/mulai - 🆕 Mulai pendaftaran baru  
 /lanjut - ⏩ Lanjutkan sesi pendaftaran
 /menu - 🏠 Kembali ke menu utama`;
   }
 
   public generateStartRegistrationMessage(): string {
-    return `✏️ Mulai Pendaftaran KYC
+    return `📋 Memulai Pendaftaran KYC
 
-📝 Langkah 1/17: Nama Agen
+🔄 **ALUR BARU dengan OCR:**
 
-Silakan masukkan nama agen:
-Contoh: Vifa CELL
+📸 **Langkah 1: Upload Foto KTP**
+Sistem akan otomatis membaca data KTP Anda menggunakan OCR (Optical Character Recognition).
 
-/menu - 🏠 Kembali ke menu utama`;
+📝 **Langkah 2-8: Isi Data Manual** 
+Data yang tidak ada di KTP perlu diisi manual.
+
+✍️ **Langkah 9: Upload Foto Tanda Tangan**
+Upload foto tanda tangan yang akan diproses otomatis (background dihapus).
+
+📸 **Langkah 10-12: Upload Foto Dokumen**
+Upload foto lokasi, buku rekening, dll.
+
+✅ **Langkah 13-14: Konfirmasi**
+Setuju syarat & ketentuan dan konfirmasi data.
+
+---
+
+📸 **Mulai dengan upload foto KTP Anda**
+Pastikan foto KTP jelas, tidak buram, dan semua teks terbaca untuk hasil OCR yang optimal.`;
   }
 
-  public generateContinueRegistrationMessage(nextStep: string): string {
-    if (nextStep === "terms_conditions") {
-      return this.generateTermsConditionsMessage();
-    }
+  // STEP MESSAGES - Flow Baru
+  public generateStepMessage(step: SessionStep): string {
+    const stepMessages: {[key in SessionStep]?: string} = {
+      [SessionStep.ID_CARD_PHOTO]: `📸 **Step 1: Upload Foto KTP**
 
-    const stepTexts: {[key: string]: {text: string; example: string}} = {
-      agent_name: {
-        text: "nama agen",
-        example: "Contoh: Vifa CELL",
-      },
-      province_selection: {
-        text: "provinsi",
-        example: "Pilih dari daftar yang akan ditampilkan",
-      },
-      city_selection: {
-        text: "kabupaten/kota",
-        example: "Pilih dari daftar yang akan ditampilkan",
-      },
-      agent_address: {
-        text: "alamat agen",
-        example:
-          "Contoh: Jalan Beringin Utara No. 123, Ternate Baru, Kec. Singkil",
-      },
-      owner_name: {
-        text: "nama pemilik",
-        example: "Contoh: Asnawi Stone",
-      },
-      business_field: {
-        text: "bidang usaha",
-        example: "Contoh: Toko Kelontong",
-      },
-      pic_name: {
-        text: "nama PIC",
-        example: "Contoh: Asnawi Stone",
-      },
-      pic_phone: {
-        text: "nomor telepon/HP PIC",
-        example: "Contoh: 085240708595 atau +6285240708595",
-      },
-      id_card_number: {
-        text: "nomor KTP (16 digit)",
-        example: "Contoh: 7171030308720002",
-      },
-      tax_number: {
-        text: "nomor NPWP (opsional, ketik /skip untuk lewati)",
-        example: "Contoh: 123456789012345 (15 digit)",
-      },
-      account_holder_name: {
-        text: "nama pemilik rekening",
-        example: "Contoh: Asnawi Stone",
-      },
-      bank_name: {
-        text: "nama bank",
-        example: "Contoh: Bank BRI atau Bank Mandiri",
-      },
-      account_number: {
-        text: "nomor rekening",
-        example: "Contoh: 068901012420509",
-      },
-      signature_initial: {
-        text: "inisial untuk tanda tangan (maksimal 10 karakter)",
-        example: "Contoh: AS atau A.S",
-      },
-      location_photos: {
-        text: "foto lokasi (nama toko, tampak depan, samping dan dalam)",
-        example: "Upload foto lokasi usaha Anda",
-      },
-      bank_book_photo: {
-        text: "foto buku rekening halaman pertama",
-        example: "Upload foto halaman pertama buku tabungan yang jelas",
-      },
-      id_card_photo: {
-        text: "foto KTP",
-        example: "Upload foto KTP yang jelas dan terbaca",
-      },
+Upload foto KTP Anda untuk proses OCR otomatis.
+
+📋 **Tips untuk foto KTP yang baik:**
+- Foto harus jelas dan tidak buram
+- Semua teks harus terbaca
+- Pencahayaan yang cukup
+- Tidak ada bayangan atau pantulan
+- Format foto: JPG, JPEG, PNG
+
+Sistem akan otomatis membaca dan mengisi data: Nama, NIK, Alamat, Agama, Pekerjaan, dan Kode Pos.`,
+
+      [SessionStep.AGENT_NAME]: `📝 **Step 2: Nama Agen**
+
+Masukkan nama agen/toko Anda.
+
+Contoh: EPADI-01, Warung Maju, Toko Berkah`,
+
+      [SessionStep.OWNER_NAME]: `📝 **Step 3: Nama Pemilik**
+
+Masukkan nama pemilik usaha.
+
+Contoh: Budi Santoso, Siti Rahayu`,
+
+      [SessionStep.BUSINESS_FIELD]: `📝 **Step 4: Bidang Usaha**
+
+Pilih bidang usaha Anda dari daftar yang tersedia.`,
+
+      [SessionStep.PIC_NAME]: `📝 **Step 5: Nama PIC (Person In Charge)**
+
+Masukkan nama orang yang bertanggung jawab.
+
+Contoh: Budi Santoso, Siti Rahayu`,
+
+      [SessionStep.PIC_PHONE]: `📝 **Step 6: Nomor Telepon PIC**
+
+Masukkan nomor telepon/HP PIC.
+
+Format yang diterima:
+- 08xxxxxxxxx
+- 62xxxxxxxxx  
+- +62xxxxxxxxx
+
+Contoh: 081234567890`,
+
+      [SessionStep.TAX_NUMBER]: `📝 **Step 7: Nomor NPWP (Opsional)**
+
+Masukkan nomor NPWP jika ada, atau ketik /skip untuk lewati.
+
+Format: 15 digit angka
+Contoh: 123456789012345`,
+
+      [SessionStep.ACCOUNT_HOLDER_NAME]: `📝 **Step 8: Nama Pemilik Rekening**
+
+Masukkan nama pemilik rekening bank.
+
+Contoh: Budi Santoso, Siti Rahayu`,
+
+      [SessionStep.BANK_NAME]: `🏦 **Step 9: Nama Bank**
+
+Pilih bank Anda dari daftar yang tersedia.`,
+
+      [SessionStep.ACCOUNT_NUMBER]: `📝 **Step 10: Nomor Rekening**
+
+Masukkan nomor rekening bank Anda.
+
+Panjang: 8-20 digit
+Contoh: 1234567890, 068901012420509`,
+
+      [SessionStep.SIGNATURE_PHOTO]: `✍️ **Step 11: Upload Foto Tanda Tangan**
+
+Upload foto tanda tangan Anda.
+
+📋 **Tips untuk foto tanda tangan:**
+- Gunakan background putih/terang
+- Tanda tangan jelas dan kontras
+- Tidak ada bayangan
+- Format: JPG, JPEG, PNG
+
+Sistem akan otomatis menghapus background dan menyesuaikan ukuran untuk dokumen.`,
+
+      [SessionStep.LOCATION_PHOTOS]: `📸 **Step 12: Upload Foto Lokasi**
+
+Upload foto lokasi usaha Anda (1-4 foto).
+
+📋 **Foto yang diperlukan:**
+- Tampak depan toko/warung
+- Papan nama (jika ada)
+- Tampak dalam
+- Tampak samping (opsional)
+
+Kirim foto satu per satu, lalu ketik "Lanjut" jika selesai.`,
+
+      [SessionStep.BANK_BOOK_PHOTO]: `📄 **Step 13: Upload Foto Buku Rekening**
+
+Upload foto halaman pertama buku rekening/tabungan Anda.
+
+📋 **Tips:**
+- Foto harus jelas dan terbaca
+- Tampilkan nama pemilik dan nomor rekening
+- Pencahayaan yang baik`,
+
+      [SessionStep.TERMS_CONDITIONS]: `📋 **Step 14: Syarat dan Ketentuan**
+
+Silakan baca dan setujui syarat dan ketentuan berikut:
+
+**SYARAT DAN KETENTUAN KYC**
+
+1. **Kebenaran Data**: Saya menjamin bahwa semua data yang saya berikan adalah benar dan akurat.
+
+2. **Tanggung Jawab**: Saya bertanggung jawab penuh atas kebenaran dan keakuratan data yang diberikan.
+
+3. **Penggunaan Data**: Data saya akan digunakan untuk proses verifikasi KYC dan keperluan bisnis terkait.
+
+4. **Verifikasi**: Perusahaan berhak memverifikasi dan meminta dokumen tambahan jika diperlukan.
+
+5. **Penolakan**: Perusahaan berhak menolak aplikasi jika data tidak valid atau tidak memenuhi syarat.
+
+6. **Privasi**: Data akan disimpan dan digunakan sesuai kebijakan privasi perusahaan.
+
+7. **Perubahan**: Syarat dan ketentuan dapat berubah sewaktu-waktu dengan pemberitahuan.
+
+Apakah Anda menyetujui syarat dan ketentuan di atas?`,
+
+      [SessionStep.CONFIRMATION]: `🔍 **Step 15: Konfirmasi Data**
+
+Silakan periksa kembali data Anda sebelum mengirim.`,
     };
 
-    const stepNumber = this.getStepNumber(nextStep);
-    const stepInfo = stepTexts[nextStep];
-
-    return `⏩ Melanjutkan pendaftaran KYC...
-
-📝 Langkah ${stepNumber}/17: ${stepInfo?.text || nextStep}
-
-Silakan masukkan ${stepInfo?.text || nextStep}:
-${stepInfo?.example || ""}
-
-/menu - 🏠 Kembali ke menu utama`;
+    return stepMessages[step] || `📝 Langkah: ${step}`;
   }
 
-  private getStepNumber(step: string): number {
-    const stepNumbers: {[key: string]: number} = {
-      agent_name: 1,
-      province_selection: 2,
-      city_selection: 3,
-      agent_address: 4,
-      owner_name: 5,
-      business_field: 6,
-      pic_name: 7,
-      pic_phone: 8,
-      id_card_number: 9,
-      tax_number: 10,
-      account_holder_name: 11,
-      bank_name: 12,
-      account_number: 13,
-      signature_initial: 14,
-      location_photos: 15,
-      bank_book_photo: 16,
-      id_card_photo: 17,
-      terms_conditions: 18,
+  // VALIDATION ERROR MESSAGES
+  public generateFieldValidationError(field: string): string {
+    const errorMessages: {[key: string]: string} = {
+      agent_name: "❌ Nama agen harus minimal 3 karakter.",
+      owner_name: "❌ Nama pemilik harus minimal 3 karakter.",
+      pic_name: "❌ Nama PIC harus minimal 3 karakter.",
+      pic_phone:
+        "❌ Format nomor telepon tidak valid. Gunakan format: 08xxxxxxxxx, 62xxxxxxxxx, atau +62xxxxxxxxx",
+      tax_number: "❌ Nomor NPWP harus 15 digit angka.",
+      account_holder_name: "❌ Nama pemilik rekening harus minimal 3 karakter.",
+      account_number: "❌ Nomor rekening harus 8-20 digit.",
+      id_card_photo: "❌ Silakan upload foto KTP, bukan teks.",
+      signature_photo: "❌ Silakan upload foto tanda tangan, bukan teks.",
+      location_photos: "❌ Silakan upload foto lokasi, bukan teks.",
+      bank_book_photo: "❌ Silakan upload foto buku rekening, bukan teks.",
     };
-    return stepNumbers[step] || 0;
+
+    return errorMessages[field] || `❌ Input tidak valid untuk ${field}.`;
   }
 
+  public generatePhotoValidationError(photoType: string): string {
+    const photoNames: {[key: string]: string} = {
+      id_card_photo: "foto KTP",
+      signature_photo: "foto tanda tangan",
+      location_photos: "foto lokasi",
+      bank_book_photo: "foto buku rekening",
+    };
+
+    return `❌ Pada step ini silakan upload ${photoNames[photoType]}, bukan teks.`;
+  }
+
+  // SUCCESS MESSAGES
   public generateFieldSuccessMessage(
     field: string,
     value: string,
-    nextField?: string
+    nextStep?: SessionStep
   ): string {
     const fieldNames: {[key: string]: string} = {
       agent_name: "Nama Agen",
-      province_selection: "Provinsi",
-      city_selection: "Kabupaten/Kota",
-      agent_address: "Alamat Agen",
       owner_name: "Nama Pemilik",
-      business_field: "Bidang Usaha",
       pic_name: "Nama PIC",
       pic_phone: "Nomor Telepon PIC",
-      id_card_number: "Nomor KTP",
       tax_number: "Nomor NPWP",
       account_holder_name: "Nama Pemilik Rekening",
       bank_name: "Nama Bank",
       account_number: "Nomor Rekening",
-      signature_initial: "Inisial Tanda Tangan",
     };
-
-    const nextFieldTexts: {[key: string]: {text: string; example: string}} = {
-      province_selection: {
-        text: "provinsi",
-        example: "Pilih dari daftar yang akan ditampilkan",
-      },
-      city_selection: {
-        text: "kabupaten/kota",
-        example: "Pilih dari daftar yang akan ditampilkan",
-      },
-      agent_address: {
-        text: "alamat agen",
-        example: "Contoh: Jalan Beringin Utara No. 123, Ternate Baru",
-      },
-      owner_name: {
-        text: "nama pemilik",
-        example: "Contoh: Asnawi Stone",
-      },
-      business_field: {
-        text: "bidang usaha",
-        example: "Pilih dari daftar yang akan ditampilkan",
-      },
-      pic_name: {
-        text: "nama PIC",
-        example: "Contoh: Asnawi Stone",
-      },
-      pic_phone: {
-        text: "nomor telepon/HP PIC",
-        example: "Contoh: 085240708595",
-      },
-      id_card_number: {
-        text: "nomor KTP (16 digit)",
-        example: "Contoh: 7171030308720002",
-      },
-      tax_number: {
-        text: "nomor NPWP (opsional, ketik /skip untuk lewati)",
-        example: "Contoh: 123456789012345",
-      },
-      account_holder_name: {
-        text: "nama pemilik rekening",
-        example: "Contoh: Asnawi Stone",
-      },
-      bank_name: {
-        text: "nama bank",
-        example: "Contoh: Bank BRI",
-      },
-      account_number: {
-        text: "nomor rekening",
-        example: "Contoh: 068901012420509",
-      },
-      signature_initial: {
-        text: "inisial untuk tanda tangan (maksimal 10 karakter)",
-        example: "Contoh: AS",
-      },
-      location_photos: {
-        text: "foto lokasi (nama toko, tampak depan, samping dan dalam)",
-        example: "Upload foto lokasi usaha Anda",
-      },
-    };
-
-    const currentStep = this.getStepNumber(field);
-    const nextStep = nextField
-      ? this.getStepNumber(nextField)
-      : currentStep + 1;
 
     let message = `✅ ${fieldNames[field]}: ${value}\n\n`;
 
-    // Special handling untuk business_field - jangan tampilkan next field instruction
-    if (
-      nextField &&
-      nextField !== "business_field" &&
-      nextFieldTexts[nextField]
-    ) {
-      const nextInfo = nextFieldTexts[nextField];
-      message += `📝 Langkah ${nextStep}/17: ${nextInfo.text}\n\n`;
-      message += `Silakan masukkan ${nextInfo.text}:\n`;
-      message += `${nextInfo.example}\n\n`;
-    } else if (nextField === "business_field") {
-      message += `📝 Langkah ${nextStep}/17: bidang usaha\n\n`;
+    if (nextStep) {
+      const stepNumber = this.getStepNumber(nextStep);
+      message += `📝 Lanjut ke Step ${stepNumber}...\n\n`;
     }
 
-    message += `/menu - 🏠 Kembali ke menu utama`;
-
-    return message;
-  }
-
-  public generatePhotoSuccessMessage(
-    photoType: string,
-    count?: number
-  ): string {
-    const photoNames: {[key: string]: string} = {
-      location_photos: "Foto Lokasi",
-      bank_book_photo: "Foto Buku Rekening",
-      id_card_photo: "Foto KTP",
-    };
-
-    let message = `✅ ${photoNames[photoType]} berhasil diunggah!`;
-
-    if (photoType === "location_photos" && count) {
-      message += ` (${count}/4 foto)`;
-
-      if (count < 4) {
-        message += `\n\n📸 Anda bisa mengunggah ${
-          4 - count
-        } foto lagi atau lanjut ke step berikutnya dengan mengetik /lanjut`;
-      } else {
-        message += `\n\n📸 Maksimal 4 foto lokasi sudah tercapai.`;
-      }
-    }
-
-    const nextSteps: {[key: string]: string} = {
-      location_photos: "foto buku rekening halaman pertama",
-      bank_book_photo: "foto KTP",
-      id_card_photo: "syarat dan ketentuan",
-    };
-
-    if (
-      nextSteps[photoType] &&
-      (photoType !== "location_photos" || count === 4)
-    ) {
-      message += `\n\n📝 Selanjutnya: ${nextSteps[photoType]}`;
-    }
-
-    message += `\n\n/menu - 🏠 Kembali ke menu utama`;
     return message;
   }
 
@@ -363,366 +334,602 @@ ${stepInfo?.example || ""}
       tax_number: "Nomor NPWP",
     };
 
-    return `⏭️ ${fieldNames[field]} dilewati.
-
-/menu - 🏠 Kembali ke menu utama`;
+    return `⏭️ ${fieldNames[field]} dilewati.\n\n📝 Lanjut ke step berikutnya...`;
   }
 
-  public generateTermsConditionsMessage(): string {
-    return `📋 Syarat dan Ketentuan
-
-Dengan melanjutkan pendaftaran KYC ini, Anda menyetujui:
-
-1. Data yang saya berikan adalah benar dan akurat
-2. Saya bertanggung jawab atas kebenaran data yang diberikan
-3. Data saya akan digunakan untuk proses verifikasi KYC
-4. Perusahaan berhak menolak aplikasi jika data tidak valid
-5. Data saya akan disimpan sesuai kebijakan privasi perusahaan
-
-Apakah Anda menyetujui syarat dan ketentuan di atas?
-
-/setuju - ✅ Setuju dan lanjutkan
-/tidaksetuju - ❌ Tidak setuju (batalkan pendaftaran)
-/menu - 🏠 Kembali ke menu utama`;
-  }
-
-  public generateConfirmationMessage(formData: any): string {
-    let message = `📋 Konfirmasi Data KYC
-
-👤 **DATA AGEN & PEMILIK**
-- Nama Agen: ${formData.agent_name}
-- Provinsi: ${formData.province_name}
-- Kabupaten/Kota: ${formData.city_name}
-- Alamat Agen: ${formData.agent_address}
-- Nama Pemilik: ${formData.owner_name}
-- Bidang Usaha: ${formData.business_field}
-
-👨‍💼 **DATA PIC**
-- Nama PIC: ${formData.pic_name}
-- Nomor Telepon PIC: ${formData.pic_phone}
-
-🆔 **DATA IDENTITAS**
-- Nomor KTP: ${formData.id_card_number}
-- Nomor NPWP: ${formData.tax_number || "Tidak diisi"}
-
-🏦 **DATA REKENING**
-- Nama Pemilik Rekening: ${formData.account_holder_name}
-- Nama Bank: ${formData.bank_name}
-- Nomor Rekening: ${formData.account_number}
-
-✍️ **TANDA TANGAN**
-- Inisial: ${formData.signature_initial}
-
-📷 **DOKUMEN FOTO**
-- Foto Lokasi: ${formData.location_photos?.length || 0} foto
-- Foto Buku Rekening: ${formData.bank_book_photo ? "Ada" : "Belum"}
-- Foto KTP: ${formData.id_card_photo ? "Ada" : "Belum"}
-
-Apakah semua data sudah benar?
-
-/ya - ✅ Ya, daftarkan
-/tidak - ❌ Tidak, ulangi
-/menu - 🏠 Menu utama`;
-
-    return message;
-  }
-
-  public generateRegistrationSuccessMessage(formData: any): string {
-    return `🎉 Selamat! Pendaftaran KYC Berhasil!
-
-Anda telah terdaftar dengan data:
-👤 Nama Agen: ${formData.agent_name}
-👨‍💼 Nama PIC: ${formData.pic_name}
-📱 Telepon PIC: ${formData.pic_phone}
-🆔 KTP: ${formData.id_card_number}
-
-Status: Draft (menunggu konfirmasi admin)
-
-Terima kasih telah melengkapi data KYC! 🙏`;
-  }
-
-  public generateViewDataMessage(application: any, photos?: any[]): string {
-    const statusIcon = application.status === "confirmed" ? "✅" : "⏳";
-    const statusText =
-      application.status === "confirmed"
-        ? "Confirmed (Sudah dikonfirmasi admin)"
-        : "Draft (Menunggu konfirmasi admin)";
-
-    let message = `📄 Data KYC Anda
-
-👤 **DATA AGEN & PEMILIK**
-- Nama Agen: ${application.agent_name}
-- Provinsi: ${application.province_name || "Tidak tersedia"}
-- Kabupaten/Kota: ${application.city_name || "Tidak tersedia"}
-- Alamat Agen: ${application.agent_address}
-- Nama Pemilik: ${application.owner_name}
-- Bidang Usaha: ${application.business_field}
-
-👨‍💼 **DATA PIC**
-- Nama PIC: ${application.pic_name}
-- Nomor Telepon PIC: ${application.pic_phone}
-
-🆔 **DATA IDENTITAS**
-- Nomor KTP: ${application.id_card_number}
-- Nomor NPWP: ${application.tax_number || "Tidak diisi"}
-
-🏦 **DATA REKENING**
-- Nama Pemilik Rekening: ${application.account_holder_name}
-- Nama Bank: ${application.bank_name}
-- Nomor Rekening: ${application.account_number}
-
-✍️ **TANDA TANGAN**
-- Inisial: ${application.signature_initial}
-
-${statusIcon} **Status**: ${statusText}
-📅 **Terdaftar**: ${new Date(application.created_at).toLocaleDateString(
-      "id-ID"
-    )}`;
-
-    if (photos && photos.length > 0) {
-      const photoCount = {
-        location_photos: 0,
-        bank_book: 0,
-        id_card: 0,
-      };
-
-      photos.forEach((photo) => {
-        if (photo.photo_type in photoCount) {
-          photoCount[photo.photo_type as keyof typeof photoCount]++;
-        }
-      });
-
-      message += `\n\n📷 **DOKUMEN FOTO**`;
-      message += `\n• Foto Lokasi: ${photoCount.location_photos} foto`;
-      message += `\n• Foto Buku Rekening: ${
-        photoCount.bank_book > 0 ? "Ada" : "Tidak ada"
-      }`;
-      message += `\n• Foto KTP: ${
-        photoCount.id_card > 0 ? "Ada" : "Tidak ada"
-      }`;
-    }
-
-    return message;
-  }
-
-  public generateAlreadyRegisteredMessage(
-    status?: "draft" | "confirmed"
+  // PHOTO SUCCESS MESSAGES
+  public generatePhotoSuccessMessage(
+    photoType: string,
+    count?: number
   ): string {
-    if (status === "confirmed") {
-      return "✅ Anda sudah terdaftar KYC dan telah dikonfirmasi admin. Gunakan /lihat untuk melihat data.";
-    }
-    return "⏳ Anda sudah terdaftar KYC dan sedang menunggu konfirmasi admin. Gunakan /lihat untuk melihat data.";
-  }
-
-  public generateUnknownMessage(): string {
-    return `❓ Pesan tidak dikenali.
-
-Gunakan command:
-- /menu - 🏠 Menu utama
-- /daftar - 📝 Daftar KYC
-- /help - ❓ Bantuan`;
-  }
-
-  public generateSystemErrorMessage(): string {
-    return "Terjadi kesalahan sistem. Silakan coba lagi.";
-  }
-
-  public generateRegistrationErrorMessage(): string {
-    return "❌ Terjadi kesalahan saat mendaftarkan. Silakan coba lagi atau hubungi admin.";
-  }
-
-  public generateNoActiveSessionMessage(): string {
-    return "❌ Tidak ada sesi konfirmasi aktif. Ketik /daftar untuk memulai pendaftaran.";
-  }
-
-  public generateFieldValidationError(field: string): string {
-    const errorMessages: {[key: string]: string} = {
-      agent_name: "Nama agen harus minimal 3 karakter",
-      agent_address: "Alamat agen harus minimal 10 karakter",
-      owner_name: "Nama pemilik harus minimal 3 karakter",
-      business_field: "Bidang usaha harus minimal 3 karakter",
-      pic_name: "Nama PIC harus minimal 3 karakter",
-      pic_phone:
-        "Format nomor telepon tidak valid. Contoh: 081234567890 atau +6281234567890",
-      id_card_number: "Nomor KTP harus 16 digit angka",
-      tax_number: "Nomor NPWP harus 15 digit angka",
-      account_holder_name: "Nama pemilik rekening harus minimal 3 karakter",
-      bank_name: "Nama bank harus minimal 3 karakter",
-      account_number:
-        "Nomor rekening harus minimal 8 karakter dan maksimal 20 karakter",
-      signature_initial: "Inisial harus 1-10 karakter",
-    };
-
-    return `❌ ${
-      errorMessages[field] || "Input tidak valid"
-    }. Silakan masukkan kembali:
-
-/menu - 🏠 Kembali ke menu utama`;
-  }
-
-  public generateIdCardDuplicateError(): string {
-    return `❌ Nomor KTP sudah terdaftar. Silakan masukkan nomor KTP yang berbeda:
-
-/menu - 🏠 Kembali ke menu utama`;
-  }
-
-  public generatePhotoValidationError(photoType: string): string {
     const photoNames: {[key: string]: string} = {
-      location_photos: "foto lokasi",
-      bank_book_photo: "foto buku rekening",
-      id_card_photo: "foto KTP",
+      id_card_photo: "Foto KTP",
+      signature_photo: "Foto Tanda Tangan",
+      location_photos: "Foto Lokasi",
+      bank_book_photo: "Foto Buku Rekening",
     };
 
-    return `❌ Silakan kirim ${photoNames[photoType]} dalam format foto (JPG, PNG).
+    let message = `✅ ${photoNames[photoType]} berhasil diupload!`;
 
-/menu - 🏠 Kembali ke menu utama`;
-  }
+    if (photoType === "location_photos" && count) {
+      message += ` (${count}/4 foto)`;
 
-  public generateLocationPhotosLimitError(): string {
-    return `❌ Maksimal 4 foto lokasi. Anda sudah mengunggah 4 foto.
+      if (count < 4) {
+        message += `\n\n📸 Anda bisa upload ${
+          4 - count
+        } foto lagi atau ketik "Lanjut" untuk melanjutkan.`;
+      } else {
+        message += `\n\n📸 Maksimal 4 foto lokasi sudah tercapai.`;
+      }
+    }
 
-Ketik /lanjut untuk melanjutkan ke step berikutnya.
-
-/menu - 🏠 Kembali ke menu utama`;
+    return message;
   }
 
   public generateLocationPhotosMinError(): string {
-    return `❌ Minimal 1 foto lokasi diperlukan.
+    return "❌ Minimal harus upload 1 foto lokasi sebelum melanjutkan.";
+  }
 
-Silakan kirim foto lokasi (Nama Toko, tampak depan, samping dan dalam):
+  public generateLocationPhotosLimitError(): string {
+    return "❌ Maksimal 4 foto lokasi. Ketik 'Lanjut' untuk melanjutkan ke step berikutnya.";
+  }
+
+  // CONFIRMATION MESSAGE
+  public generateConfirmationMessage(formData: FormData): string {
+    return `🔍 **Konfirmasi Data KYC**
+
+Silakan periksa kembali data Anda:
+
+**📋 DATA DARI KTP (OCR):**
+👤 Nama Lengkap: ${formData.full_name || "Tidak terdeteksi"}
+🆔 NIK: ${formData.id_card_number || "Tidak terdeteksi"}
+📍 Alamat: ${formData.address || "Tidak terdeteksi"}
+⛪ Agama: ${formData.religion || "Tidak terdeteksi"}
+💼 Pekerjaan: ${formData.occupation || "Tidak terdeteksi"}
+📮 Kode Pos: ${formData.postal_code || "Tidak terdeteksi"}
+
+**🏪 DATA AGEN:**
+🏷️ Nama Agen: ${formData.agent_name}
+👤 Nama Pemilik: ${formData.owner_name}
+🏢 Bidang Usaha: ${formData.business_field}
+
+**📞 DATA PIC:**
+👤 Nama PIC: ${formData.pic_name}
+📱 Telepon PIC: ${formData.pic_phone}
+
+**💰 DATA REKENING:**
+👤 Nama Pemilik Rekening: ${formData.account_holder_name}
+🏦 Nama Bank: ${formData.bank_name}
+💳 Nomor Rekening: ${formData.account_number}
+🔢 NPWP: ${formData.tax_number || "Tidak diisi"}
+
+**📸 DOKUMEN:**
+✅ Foto KTP: Terupload
+✅ Foto Tanda Tangan: Terupload (background dihapus)
+✅ Foto Lokasi: ${formData.location_photos?.length || 0} foto
+✅ Foto Buku Rekening: Terupload
+
+Apakah semua data sudah benar?`;
+  }
+
+  // REGISTRATION MESSAGES
+  public generateRegistrationSuccessMessage(formData: FormData): string {
+    return `🎉 **Pendaftaran KYC Berhasil!**
+
+Data Anda telah berhasil disimpan dan akan diproses oleh tim admin.
+
+📧 **Status:** Draft (Menunggu konfirmasi admin)
+⏰ **Estimasi:** 1-2 hari kerja
+
+📋 **Data yang terdaftar:**
+👤 Nama: ${formData.full_name}
+🏷️ Agen: ${formData.agent_name}
+🏢 Bidang Usaha: ${formData.business_field}
+
+Anda akan mendapat notifikasi melalui bot ini ketika aplikasi Anda dikonfirmasi atau jika ada yang perlu diperbaiki.
+
+/lihat - 👁️ Lihat data KYC
+/menu - 🏠 Menu utama
+
+Terima kasih! 🙏`;
+  }
+
+  public generateRegistrationErrorMessage(): string {
+    return `❌ **Pendaftaran Gagal**
+
+Terjadi kesalahan saat menyimpan data. Silakan coba lagi atau hubungi admin jika masalah berlanjut.
 
 /menu - 🏠 Kembali ke menu utama`;
   }
 
-  public generateWelcomeMessageRejected(remark: string): string {
-    return `🎉 Selamat datang kembali di ${this.botName}!
+  // BANK SELECTION
+  public async generateBankSelectionMessage() {
+    const banks = await this.bankService.getAllBanks();
 
-❌ Aplikasi KYC sebelumnya ditolak.
-📝 Alasan: ${remark}
+    let message = `🏦 **Pilih Bank Anda**\n\nSilakan pilih dengan mengetik command berikut:\n\n`;
 
-Anda dapat mendaftar ulang dengan data yang benar.
+    banks.forEach((bank: any, index) => {
+      const command = bank.bank_display.toLowerCase().replace(/\s+/g, "");
+      message += `/${command} - ${bank.bank_display}\n`;
+    });
 
-/daftar - 📝 Daftar KYC Ulang
-/menu - 🏠 Menu Utama
-/help - ❓ Bantuan`;
+    return message;
   }
 
-  public async generateBankSelectionMessage(): Promise<string> {
-    try {
-      const banks = await this.bankService.getAllBanks();
-      const bankOptions = banks
-        .map((bank) => `/${bank?.split(" ")?.join("")}`)
-        .join("\n");
+  // BUSINESS FIELD SELECTION
+  public async generateBusinessFieldSelectionMessage() {
+    const fields = await this.businessFieldService.getAllBusinessFields();
 
-      return `🏦 *Pilih Bank*
+    let message = `🏢 **Pilih Bidang Usaha**\n\nSilakan pilih dengan mengetik command berikut:\n\n`;
 
-Silakan pilih bank Anda dengan mengetik:
+    fields.forEach((field: any, index) => {
+      const command = field.name.toLowerCase().replace(/\s+/g, "");
+      message += `/${command} - ${field.name}\n`;
+    });
 
-${bankOptions}
+    return message;
+  }
 
-Ketik sesuai format di atas (dengan tanda /)`;
-    } catch (error) {
-      return `🏦 *Pilih Bank*
+  // PROVINCE & CITY SELECTION
+  public async generateProvinceSelectionMessage() {
+    const provinces = await this.provinceService.getAllProvinces();
 
-Silakan ketik nama bank Anda dengan format:
-/Bank Central Asia
-/Bank Mandiri
-dst.`;
+    let message = `🗺️ **Pilih Provinsi**\n\nSilakan pilih dengan mengetik command berikut:\n\n`;
+
+    provinces.forEach((province) => {
+      message += `/${province.code} - ${province.name}\n`;
+    });
+
+    return message;
+  }
+
+  public async generateCitySelectionMessage(provinceCode: string) {
+    const cities = await this.provinceService.getCitiesByProvince(provinceCode);
+
+    let message = `🏙️ **Pilih Kabupaten/Kota**\n\nSilakan pilih dengan mengetik command berikut:\n\n`;
+
+    cities.forEach((city) => {
+      message += `/${city.code} - ${city.name}\n`;
+    });
+
+    return message;
+  }
+
+  // VIEW DATA MESSAGE
+  public generateViewDataMessage(
+    application: KYCApplication,
+    photos: KYCPhoto[]
+  ): string {
+    return `📋 **Data KYC Anda**
+
+**Status:** ${this.getStatusText(application.status)}
+
+**📋 DATA DARI KTP:**
+👤 Nama: ${application.full_name}
+🆔 NIK: ${application.id_card_number}
+📍 Alamat: ${application.address}
+⛪ Agama: ${application.religion || "Tidak terdeteksi"}
+💼 Pekerjaan: ${application.occupation || "Tidak terdeteksi"}
+
+**🏪 DATA AGEN:**
+🏷️ Nama Agen: ${application.agent_name}
+👤 Nama Pemilik: ${application.owner_name}
+🏢 Bidang Usaha: ${application.business_field}
+
+**📞 DATA PIC:**
+👤 Nama PIC: ${application.pic_name}
+📱 Telepon: ${application.pic_phone}
+
+**💰 DATA REKENING:**
+👤 Pemilik Rekening: ${application.account_holder_name}
+🏦 Bank: ${application.bank_name}
+💳 Nomor Rekening: ${application.account_number}
+🔢 NPWP: ${application.tax_number || "Tidak diisi"}
+
+**📸 DOKUMEN:** ${photos.length} file terupload
+📅 Tanggal Daftar: ${new Date(application.created_at!).toLocaleDateString(
+      "id-ID"
+    )}`;
+  }
+
+  // UTILITY METHODS
+  private getStepNumber(step: SessionStep): number {
+    const stepNumbers: {[key in SessionStep]?: number} = {
+      [SessionStep.ID_CARD_PHOTO]: 1,
+      [SessionStep.AGENT_NAME]: 2,
+      [SessionStep.OWNER_NAME]: 3,
+      [SessionStep.BUSINESS_FIELD]: 4,
+      [SessionStep.PIC_NAME]: 5,
+      [SessionStep.PIC_PHONE]: 6,
+      [SessionStep.TAX_NUMBER]: 7,
+      [SessionStep.ACCOUNT_HOLDER_NAME]: 8,
+      [SessionStep.BANK_NAME]: 9,
+      [SessionStep.ACCOUNT_NUMBER]: 10,
+      [SessionStep.SIGNATURE_PHOTO]: 11,
+      [SessionStep.LOCATION_PHOTOS]: 12,
+      [SessionStep.BANK_BOOK_PHOTO]: 13,
+      [SessionStep.TERMS_CONDITIONS]: 14,
+      [SessionStep.CONFIRMATION]: 15,
+    };
+
+    return stepNumbers[step] || 0;
+  }
+
+  private getStatusText(status: string): string {
+    const statusTexts: {[key: string]: string} = {
+      draft: "📝 Draft (Menunggu konfirmasi admin)",
+      confirmed: "✅ Confirmed (Sudah dikonfirmasi)",
+      rejected: "❌ Rejected (Ditolak)",
+    };
+
+    return statusTexts[status] || status;
+  }
+
+  // ERROR MESSAGES
+  public generateSystemErrorMessage(): string {
+    return "❌ Terjadi kesalahan sistem. Silakan coba lagi atau hubungi admin.";
+  }
+
+  public generateUnknownMessage(): string {
+    return `❓ Perintah tidak dikenali.
+
+Gunakan command berikut:
+/menu - 🏠 Menu utama
+/help - ❓ Bantuan
+/daftar - 📝 Daftar KYC`;
+  }
+
+  public generateNoActiveSessionMessage(): string {
+    return `❌ Tidak ada sesi pendaftaran aktif.
+
+/daftar - 📝 Mulai pendaftaran KYC
+/menu - 🏠 Menu utama`;
+  }
+
+  public generateAlreadyRegisteredMessage(
+    status: "confirmed" | "draft"
+  ): string {
+    if (status === "confirmed") {
+      return `✅ Anda sudah terdaftar dan dikonfirmasi.
+
+/lihat - 👁️ Lihat data KYC
+/menu - 🏠 Menu utama`;
+    } else {
+      return `📝 Pendaftaran Anda sedang dalam status draft (menunggu konfirmasi admin).
+
+/lihat - 👁️ Lihat data KYC
+/menu - 🏠 Menu utama`;
     }
   }
 
-  public async generateBusinessFieldSelectionMessage(): Promise<string> {
-    try {
-      const businessFieldService = new BusinessFieldService();
-      const fields = await businessFieldService.getAllBusinessFields();
-      const fieldOptions = fields
-        .map((field) => `/${field?.split(" ")?.join("")}`)
-        .join("\n");
+  // E-METERAI MESSAGES
+  public generateEmeteraiConsentMessage(
+    application: KYCApplication,
+    pdfUrl: string
+  ): string {
+    return `🎉 **KYC Anda Telah Dikonfirmasi!**
 
-      return `🏢 *Pilih Bidang Usaha*
+✅ Status: Confirmed
+📄 Dokumen KYC: [Download PDF](${pdfUrl})
 
-Silakan pilih bidang usaha Anda dengan mengetik:
+📜 **E-Meterai Digital**
+Apakah Anda ingin menambahkan e-meterai digital pada dokumen KYC Anda?
 
-${fieldOptions}
+ℹ️ E-meterai memberikan:
+- Legalitas dokumen digital
+- Keamanan tambahan
+- Pengakuan hukum
 
-Ketik sesuai format di atas (dengan tanda /)`;
-    } catch (error) {
-      return `🏢 *Pilih Bidang Usaha*
+/setuju - ✅ Ya, tambahkan e-meterai
+/tidaksetuju - ❌ Tidak, dokumen tetap valid
 
-Silakan ketik bidang usaha Anda dengan format:
-/TokoKelontong
-/WarungMakan
-dst.
-
-(Format: /NamaBidangUsaha)`;
-    }
-  }
-
-  public generateEmeteraiConsentMessage(formData: any, pdfUrl: string): string {
-    return `📋 Data KYC Anda telah dikonfirmasi oleh admin!
-
-👤 **DATA AGEN**
-- Nama Agen: ${formData.agent_name}
-- Nama PIC: ${formData.pic_name}
-- Telepon PIC: ${formData.pic_phone}
-
-📄 **PDF KYC**: ${pdfUrl}
-
-🔐 **E-METERAI STAMPING**
-Untuk memberikan validitas hukum pada dokumen KYC Anda, kami menyediakan layanan pembubuhan e-meterai digital.
-
-Apakah Anda setuju untuk melakukan pembubuhan e-meterai pada dokumen KYC Anda?
-
-/setuju - ✅ Setuju pembubuhan e-meterai
-/tidaksetuju - ❌ Tidak setuju`;
+Dokumen Anda tetap sah tanpa e-meterai.`;
   }
 
   public generateEmeteraiSuccessMessage(stampedPdfUrl: string): string {
-    return `🎉 E-meterai berhasil dibubuhkan!
+    return `✅ **E-Meterai Berhasil Ditambahkan!**
 
-📄 **Dokumen KYC Ber-E-meterai**: ${stampedPdfUrl}
+📄 Dokumen dengan e-meterai: [Download PDF](${stampedPdfUrl})
 
-✅ Dokumen KYC Anda sekarang telah memiliki validitas hukum penuh dengan e-meterai digital.
+🔒 Dokumen Anda sekarang memiliki:
+- E-meterai digital resmi
+- Legalitas yang lebih kuat
+- Keamanan dokumen terjamin
 
-Terima kasih telah melengkapi proses KYC! 🙏`;
+Terima kasih telah menggunakan layanan kami! 🙏`;
   }
 
-  public async generateProvinceSelectionMessage(): Promise<string> {
-    try {
-      const provinces = await this.provinceService.getAllProvinces();
-      const provinceOptions = provinces
-        .map((province) => `/${province.code} - ${province.name}`)
-        .join("\n");
+  public generateTermsConditionsMessage(): string {
+    return `📋 **Syarat dan Ketentuan KYC**
 
-      return `📍 *Pilih Provinsi*
+Silakan baca dan setujui syarat dan ketentuan berikut:
 
-Silakan pilih provinsi Anda:
+**1. KEBENARAN DATA**
+Saya menjamin bahwa semua data yang saya berikan adalah benar, akurat, dan terkini.
 
-${provinceOptions}
-`;
-    } catch (error) {
-      return "📍 *Pilih Provinsi*\n\nTerjadi kesalahan memuat data provinsi.";
-    }
+**2. TANGGUNG JAWAB**
+Saya bertanggung jawab penuh atas kebenaran dan keakuratan semua informasi yang diberikan.
+
+**3. PENGGUNAAN DATA**
+Data saya akan digunakan untuk:
+- Proses verifikasi KYC
+- Keperluan bisnis dan administrasi
+- Kepatuhan terhadap regulasi yang berlaku
+
+**4. VERIFIKASI DOKUMEN**
+Perusahaan berhak:
+- Memverifikasi kebenaran dokumen
+- Meminta dokumen tambahan jika diperlukan
+- Melakukan cross-check dengan pihak ketiga
+
+**5. HAK PENOLAKAN**
+Perusahaan berhak menolak aplikasi jika:
+- Data tidak valid atau tidak lengkap
+- Dokumen tidak memenuhi standar
+- Tidak memenuhi kriteria yang ditetapkan
+
+**6. KERAHASIAAN DATA**
+Data akan disimpan dengan aman dan digunakan sesuai kebijakan privasi perusahaan.
+
+**7. PERUBAHAN KETENTUAN**
+Syarat dan ketentuan dapat berubah sewaktu-waktu dengan pemberitahuan sebelumnya.
+
+**8. PERSETUJUAN**
+Dengan melanjutkan, saya menyatakan telah membaca, memahami, dan menyetujui semua syarat dan ketentuan di atas.
+
+Apakah Anda menyetujui syarat dan ketentuan di atas?
+
+**Setuju** - ✅ Ya, saya setuju
+**Tidak Setuju** - ❌ Tidak, saya tidak setuju`;
   }
 
-  public async generateCitySelectionMessage(
-    provinceCode: string
-  ): Promise<string> {
-    try {
-      const cities = await this.provinceService.getCitiesByProvince(
-        provinceCode
-      );
-      const cityOptions = cities
-        .map((city) => `/${city.code} - ${city.name}`)
-        .join("\n");
+  public generateContinueRegistrationMessage(nextStep: SessionStep): string {
+    const stepNumber = this.getStepNumber(nextStep);
+    const stepMessage = this.generateStepMessage(nextStep);
 
-      return `🏙️ *Pilih Kab/Kota*
+    return `⏩ **Melanjutkan Pendaftaran KYC**
 
-Silakan pilih kabupaten/kota Anda:
+📝 **Step ${stepNumber}/15**
 
-${cityOptions}`;
-    } catch (error) {
-      return "🏙️ *Pilih Kab/Kota*\n\nTerjadi kesalahan memuat data kota.";
+${stepMessage}`;
+  }
+  public generateRegistrationStartMessage(): string {
+    return `📋 **Pendaftaran KYC**
+
+Pilih opsi pendaftaran:
+
+**Mulai Pendaftaran Baru** - 🆕 Mulai dari awal
+**Lanjutkan Sesi Pendaftaran** - ⏩ Lanjutkan yang belum selesai
+
+/menu - 🏠 Kembali ke menu utama`;
+  }
+
+  // Method untuk display current step info
+  public generateCurrentStepInfo(
+    currentStep: SessionStep,
+    formData: FormData
+  ): string {
+    const stepNumber = this.getStepNumber(currentStep);
+    const completedSteps = this.getCompletedStepsCount(formData);
+
+    return `📍 **Status Pendaftaran**
+
+⏳ Step saat ini: ${stepNumber}/15
+✅ Step selesai: ${completedSteps}/15
+📝 Current: ${this.getStepDisplayName(currentStep)}
+
+Progress: ${Math.round((completedSteps / 15) * 100)}%`;
+  }
+
+  // Utility methods untuk step info
+  private getStepDisplayName(step: SessionStep): string {
+    const stepNames: {[key in SessionStep]?: string} = {
+      [SessionStep.ID_CARD_PHOTO]: "Upload Foto KTP",
+      [SessionStep.AGENT_NAME]: "Nama Agen",
+      [SessionStep.OWNER_NAME]: "Nama Pemilik",
+      [SessionStep.BUSINESS_FIELD]: "Bidang Usaha",
+      [SessionStep.PIC_NAME]: "Nama PIC",
+      [SessionStep.PIC_PHONE]: "Telepon PIC",
+      [SessionStep.TAX_NUMBER]: "NPWP (Opsional)",
+      [SessionStep.ACCOUNT_HOLDER_NAME]: "Nama Pemilik Rekening",
+      [SessionStep.BANK_NAME]: "Nama Bank",
+      [SessionStep.ACCOUNT_NUMBER]: "Nomor Rekening",
+      [SessionStep.SIGNATURE_PHOTO]: "Upload Tanda Tangan",
+      [SessionStep.LOCATION_PHOTOS]: "Upload Foto Lokasi",
+      [SessionStep.BANK_BOOK_PHOTO]: "Upload Foto Buku Rekening",
+      [SessionStep.TERMS_CONDITIONS]: "Syarat & Ketentuan",
+      [SessionStep.CONFIRMATION]: "Konfirmasi Data",
+    };
+
+    return stepNames[step] || step;
+  }
+
+  private getCompletedStepsCount(formData: FormData): number {
+    let completed = 0;
+
+    // Check each required field
+    if (formData.id_card_photo) completed++;
+    if (formData.agent_name) completed++;
+    if (formData.owner_name) completed++;
+    if (formData.business_field) completed++;
+    if (formData.pic_name) completed++;
+    if (formData.pic_phone) completed++;
+    // tax_number is optional, so we count it as completed by default
+    completed++;
+    if (formData.account_holder_name) completed++;
+    if (formData.bank_name) completed++;
+    if (formData.account_number) completed++;
+    if (formData.signature_photo) completed++;
+    if (formData.location_photos && formData.location_photos.length > 0)
+      completed++;
+    if (formData.bank_book_photo) completed++;
+    if (formData.terms_accepted) completed++;
+
+    return completed;
+  }
+
+  // Message untuk photo upload guidance
+  public generatePhotoUploadGuidance(photoType: SessionStep): string {
+    const guidance: {[key in SessionStep]?: string} = {
+      [SessionStep.ID_CARD_PHOTO]: `📸 **Tips Upload Foto KTP:**
+
+✅ **Yang Benar:**
+- Foto jelas dan tidak buram
+- Semua teks dapat dibaca
+- Pencahayaan cukup terang
+- Tidak ada bayangan atau silau
+- Posisi KTP lurus dan penuh
+
+❌ **Hindari:**
+- Foto buram atau gelap
+- Ada bayangan pada KTP
+- Terpotong atau tidak lengkap
+- Resolusi terlalu rendah
+
+💡 **Info:** Sistem OCR akan otomatis membaca nama, NIK, alamat, agama, pekerjaan, dan kode pos dari KTP Anda.`,
+
+      [SessionStep.SIGNATURE_PHOTO]: `✍️ **Tips Upload Foto Tanda Tangan:**
+
+✅ **Yang Benar:**
+- Gunakan background putih/terang
+- Tanda tangan kontras dan jelas
+- Tidak ada bayangan
+- Posisi tegak dan centered
+
+❌ **Hindari:**
+- Background gelap atau ramai
+- Tanda tangan tipis/pudar
+- Ada coretan lain di kertas
+
+💡 **Info:** Sistem akan otomatis menghapus background dan menyesuaikan ukuran untuk dokumen PDF.`,
+
+      [SessionStep.LOCATION_PHOTOS]: `📍 **Tips Upload Foto Lokasi:**
+
+📸 **Foto yang diperlukan:**
+1. Tampak depan toko/warung
+2. Papan nama/spanduk (jika ada)
+3. Tampak dalam ruangan
+4. Tampak samping (opsional)
+
+✅ **Yang Benar:**
+- Foto jelas dan terang
+- Menunjukkan kondisi aktual
+- Tampak profesional dan bersih
+
+💡 **Info:** Upload 1-4 foto, lalu ketik "Lanjut" untuk melanjutkan.`,
+
+      [SessionStep.BANK_BOOK_PHOTO]: `📄 **Tips Upload Foto Buku Rekening:**
+
+✅ **Yang Benar:**
+- Foto halaman pertama buku tabungan
+- Nama pemilik terlihat jelas
+- Nomor rekening terbaca
+- Pencahayaan yang baik
+
+❌ **Hindari:**
+- Foto buram atau gelap
+- Informasi tidak lengkap
+- Ada yang tertutup jari/benda lain
+
+💡 **Info:** Pastikan nama dan nomor rekening sesuai dengan data yang sudah diisi.`,
+    };
+
+    return guidance[photoType] || "";
+  }
+
+  // Message untuk error recovery
+  public generateStepRecoveryMessage(currentStep: SessionStep): string {
+    return `🔄 **Pemulihan Sesi**
+
+Anda sedang berada di step: ${this.getStepDisplayName(currentStep)}
+
+Silakan lanjutkan dari step ini atau:
+
+/mulai - 🆕 Mulai ulang dari awal
+/menu - 🏠 Kembali ke menu utama
+/help - ❓ Bantuan`;
+  }
+
+  // Message untuk validation dengan suggestion
+  public generateValidationErrorWithSuggestion(
+    field: string,
+    suggestion?: string
+  ): string {
+    const baseError = this.generateFieldValidationError(field);
+
+    if (suggestion) {
+      return `${baseError}\n\n💡 **Saran:** ${suggestion}`;
     }
+
+    return baseError;
+  }
+
+  // Method untuk handle keyboard responses
+  public generateMenuKeyboard(): any {
+    return {
+      reply_markup: {
+        keyboard: [["Daftar KYC"], ["Menu Utama"]],
+        resize_keyboard: true,
+        one_time_keyboard: true,
+      },
+    };
+  }
+
+  public generateRegistrationKeyboard(): any {
+    return {
+      reply_markup: {
+        keyboard: [
+          ["Mulai Pendaftaran Baru"],
+          ["Lanjutkan Sesi Pendaftaran"],
+          ["Kembali ke Menu Utama"],
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: false,
+      },
+    };
+  }
+
+  public generateConfirmationKeyboard(): any {
+    return {
+      reply_markup: {
+        keyboard: [
+          ["Ya, Daftarkan"],
+          ["Tidak, Ulangi Pendaftaran"],
+          ["Kembali ke Menu Utama"],
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: true,
+      },
+    };
+  }
+
+  public generateTermsKeyboard(): any {
+    return {
+      reply_markup: {
+        keyboard: [["Setuju"], ["Tidak Setuju"], ["Kembali ke Menu Utama"]],
+        resize_keyboard: true,
+        one_time_keyboard: true,
+      },
+    };
+  }
+
+  public generateSkipKeyboard(): any {
+    return {
+      reply_markup: {
+        keyboard: [["Skip"], ["Kembali ke Menu Utama"]],
+        resize_keyboard: true,
+        one_time_keyboard: true,
+      },
+    };
+  }
+
+  public generateContinueKeyboard(): any {
+    return {
+      reply_markup: {
+        keyboard: [["Lanjut"], ["Kembali ke Menu Utama"]],
+        resize_keyboard: true,
+        one_time_keyboard: true,
+      },
+    };
   }
 }

@@ -18,8 +18,16 @@ export interface KYCApplication {
   username?: string;
   first_name?: string;
   last_name?: string;
+
+  // Data dari OCR KTP
+  full_name: string;
+  address: string;
+  religion?: string;
+  occupation?: string;
+  postal_code?: string;
+
+  // Data manual input
   agent_name: string;
-  agent_address: string;
   owner_name: string;
   business_field: string;
   pic_name: string;
@@ -29,12 +37,17 @@ export interface KYCApplication {
   account_holder_name: string;
   bank_name: string;
   account_number: string;
+
+  // Excel data yang tidak ada di form
+  tid?: string;
+  mid?: string;
+  mcc?: string;
+
   province_code?: string;
   province_name?: string;
   city_code?: string;
   city_name?: string;
-  confirm_date?: Date;
-  signature_initial: string;
+
   status: "draft" | "confirmed" | "rejected";
   remark?: string;
   pdf_url?: string;
@@ -51,6 +64,7 @@ export interface KYCApplication {
   stamped_at?: Date;
   user_emeterai_consent?: boolean;
   is_processed: boolean;
+  is_reviewed_by_artajasa: boolean;
   created_at?: Date;
   updated_at?: Date;
 }
@@ -59,28 +73,37 @@ export interface KYCPhoto {
   id?: number;
   partner_id: number;
   application_id: number;
-  photo_type: "location_photos" | "bank_book" | "id_card";
+  photo_type: "location_photos" | "bank_book" | "id_card" | "signature";
   file_url: string;
   file_name: string;
   file_size?: number;
   uploaded_at?: Date;
 }
 export interface FormData {
+  full_name?: string; // dari KTP
+  address?: string; // dari KTP
+  religion?: string; // dari KTP
+  occupation?: string; // dari KTP
+  postal_code?: string; // tambahan untuk KTP
+
+  // Data yang tetap manual input
   agent_name?: string;
-  agent_address?: string;
   owner_name?: string;
   business_field?: string;
   pic_name?: string;
   pic_phone?: string;
-  id_card_number?: string;
+  id_card_number?: string; // dari OCR KTP
   tax_number?: string;
   account_holder_name?: string;
   bank_name?: string;
   account_number?: string;
-  signature_initial?: string;
+
+  // Photo uploads
+  id_card_photo?: string; // PERTAMA - untuk OCR
+  signature_photo?: string; // Ganti dari signature_initial
   location_photos?: string[];
   bank_book_photo?: string;
-  id_card_photo?: string;
+
   terms_accepted?: boolean;
   province_code?: string;
   province_name?: string;
@@ -92,26 +115,26 @@ export enum SessionStep {
   MENU = "menu",
   REGISTRATION_START = "registration_start",
 
-  // Text inputs
+  // Flow baru - KTP upload pertama
+  ID_CARD_PHOTO = "id_card_photo",
+
+  // Data yang tidak ada di KTP
   AGENT_NAME = "agent_name",
-  AGENT_ADDRESS = "agent_address",
   OWNER_NAME = "owner_name",
   BUSINESS_FIELD = "business_field",
   PIC_NAME = "pic_name",
   PIC_PHONE = "pic_phone",
-  ID_CARD_NUMBER = "id_card_number",
   TAX_NUMBER = "tax_number",
   ACCOUNT_HOLDER_NAME = "account_holder_name",
   BANK_NAME = "bank_name",
   ACCOUNT_NUMBER = "account_number",
-  SIGNATURE_INITIAL = "signature_initial",
 
-  // Photo uploads
+  // Upload lainnya
+  SIGNATURE_PHOTO = "signature_photo", // Ganti dari SIGNATURE_INITIAL
   LOCATION_PHOTOS = "location_photos",
   BANK_BOOK_PHOTO = "bank_book_photo",
-  ID_CARD_PHOTO = "id_card_photo",
 
-  // Terms and Confirmation
+  // Final steps
   TERMS_CONDITIONS = "terms_conditions",
   CONFIRMATION = "confirmation",
 
@@ -307,4 +330,27 @@ export interface BotInstance {
   status: "active" | "inactive" | "error";
   last_heartbeat: Date;
   created_at: Date;
+}
+
+export interface OCRKTPResponse {
+  success: boolean;
+  data?: {
+    full_name: string;
+    address: string;
+    id_card_number: string;
+    religion?: string;
+    occupation?: string;
+    postal_code?: string;
+  };
+  message?: string;
+}
+
+export interface SignatureProcessResponse {
+  success: boolean;
+  data?: {
+    processed_image_url: string;
+    width: number;
+    height: number;
+  };
+  message?: string;
 }

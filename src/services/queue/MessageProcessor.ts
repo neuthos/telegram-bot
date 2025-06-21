@@ -4,17 +4,14 @@ import {MessageHandler} from "../../handlers/MessageHandler";
 import {Logger} from "../../config/logger";
 import {CacheProvider} from "../cache/CacheProvider";
 import {CacheFactory} from "../cache/CacheFactory";
-import {SessionService} from "../SessionServices";
 
 export class MessageProcessor {
-  private sessionService: SessionService;
-  private messageHandler: MessageHandler;
+  private messageHandler: MessageHandler | undefined;
   private cache: CacheProvider;
   private logger = Logger.getInstance();
   private bots: Map<number, any> = new Map();
 
   constructor() {
-    this.sessionService = new SessionService();
     this.cache = CacheFactory.create();
   }
 
@@ -41,7 +38,7 @@ export class MessageProcessor {
         throw new Error(`Bot not found for partner ${partnerId}`);
       }
 
-      await this.messageHandler.handleMessage(bot, message, partnerId);
+      await this.messageHandler?.handleMessage(bot, message, partnerId);
     } catch (error) {
       this.logger.error("Message processing failed", {
         partnerId,
