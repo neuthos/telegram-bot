@@ -4,11 +4,14 @@ import crypto from "crypto";
 import {Logger} from "../config/logger";
 import {SessionService} from "./SessionServices";
 import {CDNService} from "./CDNService";
+import {Database} from "../config/database";
+import {TokenManager} from "./TokenManager";
 
 export class EmeteraiService {
   private logger = Logger.getInstance();
   private sessionService = new SessionService();
   private cdnService = new CDNService();
+  private tokenManager = TokenManager.getInstance();
   private axiosInstance: AxiosInstance;
 
   constructor() {
@@ -23,7 +26,8 @@ export class EmeteraiService {
 
   public async processStamping(
     applicationId: number,
-    stampedBy: string
+    stampedBy: string,
+    partnerId: number
   ): Promise<void> {
     try {
       await this.sessionService.updateEmeteraiStatus(
@@ -31,10 +35,11 @@ export class EmeteraiService {
         "getting_token"
       );
 
-      await this.retryOperation(() => this.getValidToken(applicationId));
+      const token = await this.tokenManager.getEmeteraiToken(partnerId);
 
       const application = await this.sessionService.getKYCApplicationById(
-        applicationId
+        applicationId,
+        partnerId
       );
 
       if (!application?.pdf_url) {
@@ -46,9 +51,8 @@ export class EmeteraiService {
         "uploading_document"
       );
 
-      // 2. Upload Document dengan retry
       const transactionId = await this.retryOperation(() =>
-        this.uploadDocument(applicationId, stampedBy)
+        this.uploadDocument(applicationId, stampedBy, token, partnerId)
       );
 
       await this.sessionService.updateEmeteraiStatus(
@@ -56,16 +60,14 @@ export class EmeteraiService {
         "generating_sn"
       );
 
-      // 3. Generate SN dengan retry
       const snMeterai = await this.retryOperation(() =>
-        this.generateSN(applicationId, transactionId)
+        this.generateSN(applicationId, transactionId, partnerId)
       );
 
       await this.sessionService.updateEmeteraiStatus(applicationId, "stamping");
 
-      // 4. Stamp Document dengan retry
       await this.retryOperation(() =>
-        this.stampDocument(applicationId, transactionId, snMeterai)
+        this.stampDocument(transactionId, snMeterai, partnerId)
       );
 
       await this.sessionService.updateEmeteraiStatus(
@@ -73,9 +75,8 @@ export class EmeteraiService {
         "downloading"
       );
 
-      // 5. Download dengan retry
       const stampedPdfUrl = await this.retryOperation(() =>
-        this.downloadStampedDocument(applicationId, transactionId)
+        this.downloadStampedDocument(applicationId, transactionId, partnerId)
       );
 
       await this.sessionService.updateStampedInfo(
@@ -83,19 +84,28 @@ export class EmeteraiService {
         stampedPdfUrl,
         stampedBy
       );
+
       await this.sessionService.updateEmeteraiStatus(
         applicationId,
         "completed"
       );
     } catch (error) {
       await this.sessionService.updateEmeteraiStatus(applicationId, "failed");
-      this.logger.error("E-meterai processing failed:", {applicationId, error});
+      this.logger.error("E-meterai processing failed:", {
+        applicationId,
+        partnerId,
+        error,
+      });
       throw error;
     }
   }
 
-  public async pdfConvert(applicationId: number, pdfBuffer: any): Promise<any> {
-    const token = await this.getValidToken(applicationId);
+  public async pdfConvert(
+    applicationId: number,
+    pdfBuffer: any,
+    partnerId: number
+  ): Promise<any> {
+    const token = await this.tokenManager.getEmeteraiToken(partnerId);
 
     const formData = new FormData();
     formData.append("document", pdfBuffer, `kyc_${applicationId}.pdf`);
@@ -112,7 +122,6 @@ export class EmeteraiService {
       }
     );
 
-    // Convert arraybuffer to Buffer directly
     const convertedBuffer = Buffer.from(response.data);
 
     if (!convertedBuffer.toString("ascii", 0, 4).startsWith("%PDF")) {
@@ -126,52 +135,50 @@ export class EmeteraiService {
     return convertedBuffer;
   }
 
-  private async getValidToken(applicationId: number): Promise<string> {
-    const application = await this.sessionService.getKYCApplicationById(
-      applicationId
+  private async getValidToken(partnerId: number): Promise<string> {
+    return await this.tokenManager.getEmeteraiToken(partnerId);
+  }
+
+  private async getPartnerConfig(partnerId: number) {
+    const db = Database.getInstance().getPool();
+    const result = await db.query(
+      `SELECT emeterai_client_id, emeterai_client_email 
+       FROM partners WHERE id = $1`,
+      [partnerId]
     );
-    if (application?.emeterai_token && application?.emeterai_token_expires) {
-      if (new Date(application.emeterai_token_expires) > new Date()) {
-        return application.emeterai_token;
-      }
+
+    if (result.rows.length === 0) {
+      throw new Error("Partner not found");
     }
 
-    const response = await this.axiosInstance.post("/api/v1/client/get-token", {
-      client_id: process.env.EMETERAI_CLIENT_ID,
-      client_email: process.env.EMETERAI_CLIENT_EMAIL,
-      client_password: process.env.EMETERAI_CLIENT_PASSWORD,
-    });
-
-    const tokenData = response.data.data.MCPToken.Token;
-    await this.sessionService.updateEmeteraiToken(
-      applicationId,
-      tokenData.jwt,
-      new Date(tokenData.expiredDate)
-    );
-
-    return tokenData.jwt;
+    return result.rows[0];
   }
 
   private async uploadDocument(
     applicationId: number,
-    stampedBy: string
+    stampedBy: string,
+    token: string,
+    partnerId: number
   ): Promise<string> {
-    const token = await this.getValidToken(applicationId);
+    const partner = await this.getPartnerConfig(partnerId);
     const application = await this.sessionService.getKYCApplicationById(
-      applicationId
+      applicationId,
+      partnerId
     );
 
     const pdfResponse = await axios.get(application!.pdf_url!, {
       responseType: "arraybuffer",
     });
+
     const pdfBuffer = Buffer.from(pdfResponse.data);
     const formData = new FormData();
-    formData.append("client_id", process.env.EMETERAI_CLIENT_ID);
-    formData.append("email_uploader", process.env.EMETERAI_CLIENT_EMAIL);
+
+    formData.append("client_id", partner.emeterai_client_id);
+    formData.append("email_uploader", partner.emeterai_client_email);
     formData.append("doc_number", `KYC${applicationId}_${Date.now()}`);
     formData.append("doc_date", new Date().toISOString().split("T")[0]);
     formData.append("doc_upload", pdfBuffer, `kyc_${applicationId}.pdf`);
-    formData.append("email_stamper", process.env.EMETERAI_CLIENT_EMAIL);
+    formData.append("email_stamper", partner.emeterai_client_email);
     formData.append("name_stamper", stampedBy);
     formData.append("ktp_stamper", "");
     formData.append("doc_meterai_location", "Jakarta");
@@ -190,21 +197,25 @@ export class EmeteraiService {
         },
       }
     );
+
     const transactionId = response.data.data.transaction_id;
     await this.sessionService.updateEmeteraiTransactionId(
       applicationId,
       transactionId
     );
+
     return transactionId;
   }
 
   private async generateSN(
     applicationId: number,
-    transactionId: string
+    transactionId: string,
+    partnerId: number
   ): Promise<string> {
-    const token = await this.getValidToken(applicationId);
+    const token = await this.tokenManager.getEmeteraiToken(partnerId);
+    const partner = await this.getPartnerConfig(partnerId);
 
-    const rulesXReqSignature = `${process.env.EMETERAI_CLIENT_ID}${transactionId}`;
+    const rulesXReqSignature = `${partner.emeterai_client_id}${transactionId}`;
     const signatureKey = crypto
       .createHash("sha256")
       .update(rulesXReqSignature)
@@ -213,7 +224,7 @@ export class EmeteraiService {
     const response = await this.axiosInstance.post(
       "/api/v1/emeterai/generate-meterai-onpremis-single",
       {
-        client_id: process.env.EMETERAI_CLIENT_ID,
+        client_id: partner.emeterai_client_id,
         transaction_id: transactionId,
         meterai_price: "10000",
         signature_key: signatureKey,
@@ -229,16 +240,17 @@ export class EmeteraiService {
   }
 
   private async stampDocument(
-    applicationId: number,
     transactionId: string,
-    snMeterai: string
+    snMeterai: string,
+    partnerId: number
   ): Promise<void> {
-    const token = await this.getValidToken(applicationId);
+    const token = await this.tokenManager.getEmeteraiToken(partnerId);
+    const partner = await this.getPartnerConfig(partnerId);
 
     await this.axiosInstance.post(
       "/api/v1/emeterai/stamping-meterai-onpremis",
       {
-        client_id: process.env.EMETERAI_CLIENT_ID,
+        client_id: partner.emeterai_client_id,
         transaction_id: transactionId,
         sn_emeterai: snMeterai,
         lowerLeftX: 475,
@@ -255,14 +267,16 @@ export class EmeteraiService {
 
   private async downloadStampedDocument(
     applicationId: number,
-    transactionId: string
+    transactionId: string,
+    partnerId: number
   ): Promise<string> {
-    const token = await this.getValidToken(applicationId);
+    const token = await this.tokenManager.getEmeteraiToken(partnerId);
+    const partner = await this.getPartnerConfig(partnerId);
 
     const response = await this.axiosInstance.post(
       "/api/v1/emeterai/download-document-onpremis",
       {
-        client_id: process.env.EMETERAI_CLIENT_ID,
+        client_id: partner.emeterai_client_id,
         transaction_id: transactionId,
       },
       {

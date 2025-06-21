@@ -1,4 +1,4 @@
--- Drop existing tables if needed
+
 DROP TABLE IF EXISTS kyc_photos CASCADE;
 DROP TABLE IF EXISTS kyc_applications CASCADE;
 DROP TABLE IF EXISTS active_sessions CASCADE;
@@ -7,21 +7,21 @@ DROP TABLE IF EXISTS business_fields CASCADE;
 DROP TABLE IF EXISTS provinces CASCADE;
 DROP TABLE IF EXISTS cities CASCADE;
 
--- Banks reference table
+
 CREATE TABLE banks (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL UNIQUE,
+    bank_display VARCHAR(255) NOT NULL UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Business fields reference table
+
 CREATE TABLE business_fields (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Active sessions for ongoing registrations
+
 CREATE TABLE active_sessions (
     id SERIAL PRIMARY KEY,
     telegram_id BIGINT UNIQUE NOT NULL,
@@ -35,7 +35,7 @@ CREATE TABLE active_sessions (
 );
 
 
--- Create reference tables
+
 CREATE TABLE provinces (
     code VARCHAR(10) PRIMARY KEY,
     name VARCHAR(255) NOT NULL
@@ -48,7 +48,7 @@ CREATE TABLE cities (
 );
 
 
--- Main KYC applications
+
 CREATE TABLE kyc_applications (
     id SERIAL PRIMARY KEY,
     telegram_id BIGINT UNIQUE NOT NULL,
@@ -56,7 +56,7 @@ CREATE TABLE kyc_applications (
     first_name VARCHAR(100),
     last_name VARCHAR(100),
 
-    -- Form fields
+    
     agent_name VARCHAR(200) NOT NULL,
     agent_address TEXT NOT NULL,
     owner_name VARCHAR(200) NOT NULL,
@@ -64,7 +64,7 @@ CREATE TABLE kyc_applications (
     pic_name VARCHAR(200) NOT NULL,
     pic_phone VARCHAR(20) NOT NULL,
     id_card_number VARCHAR(20) UNIQUE NOT NULL,
-    tax_number VARCHAR(20), -- Optional NPWP
+    tax_number VARCHAR(20), 
     account_holder_name VARCHAR(200) NOT NULL,
     bank_name VARCHAR(100) NOT NULL,
     account_number VARCHAR(50) NOT NULL,
@@ -76,19 +76,19 @@ CREATE TABLE kyc_applications (
     city_name VARCHAR(255),
 
 
-    -- System fields
+    
     status VARCHAR(20) DEFAULT 'draft' CHECK (status IN ('draft', 'confirmed', 'rejected')),
     remark TEXT NULL,
     pdf_url TEXT NULL,
 
-    -- Admin confirmation info
+    
     confirmed_by_name VARCHAR(200),
     confirmed_by_initial VARCHAR(10),
     confirmed_by_partner VARCHAR(200),
     admin_confirmed_at TIMESTAMP,
     admin_rejected_at TIMESTAMP,
 
-    -- E-meterai fields
+    
     emeterai_status VARCHAR(50) DEFAULT 'not_started',
     emeterai_transaction_id VARCHAR(255),
     emeterai_token TEXT,
@@ -104,12 +104,12 @@ CREATE TABLE kyc_applications (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Photos storage (using CDN URLs)
+
 CREATE TABLE kyc_photos (
     id SERIAL PRIMARY KEY,
     application_id INTEGER REFERENCES kyc_applications(id) ON DELETE CASCADE,
     photo_type VARCHAR(50) NOT NULL,
-    file_path VARCHAR(500) NOT NULL, -- CDN URLs
+    file_path VARCHAR(500) NOT NULL, 
     file_name VARCHAR(200) NOT NULL,
     file_size INTEGER,
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -117,7 +117,7 @@ CREATE TABLE kyc_photos (
     CONSTRAINT check_photo_type CHECK (photo_type IN ('location_photos', 'bank_book', 'id_card'))
 );
 
--- Indexes
+
 CREATE INDEX idx_active_sessions_telegram_id ON active_sessions(telegram_id);
 CREATE INDEX idx_kyc_applications_telegram_id ON kyc_applications(telegram_id);
 CREATE INDEX idx_kyc_applications_id_card ON kyc_applications(id_card_number);
@@ -125,8 +125,61 @@ CREATE INDEX idx_kyc_applications_status ON kyc_applications(status);
 CREATE INDEX idx_kyc_photos_application_id ON kyc_photos(application_id);
 CREATE INDEX idx_kyc_photos_type ON kyc_photos(photo_type);
 
--- Insert sample banks
-INSERT INTO banks (name) VALUES
+
+
+CREATE TABLE partners (
+   id SERIAL PRIMARY KEY,
+   name VARCHAR(255) NOT NULL,
+   bot_token VARCHAR(255) UNIQUE NOT NULL,
+   api_secret VARCHAR(255) NOT NULL,
+   webhook_url VARCHAR(500),
+   is_active BOOLEAN DEFAULT true,
+   rate_limit INTEGER DEFAULT 100,
+   emeterai_client_id VARCHAR(255),
+   emeterai_client_email VARCHAR(255),
+   emeterai_client_password VARCHAR(255),
+   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+CREATE TABLE bot_instances (
+   id SERIAL PRIMARY KEY,
+   partner_id INTEGER REFERENCES partners(id) ON DELETE CASCADE,
+   instance_id VARCHAR(255) UNIQUE NOT NULL,
+   hostname VARCHAR(255),
+   status VARCHAR(50) DEFAULT 'active',
+   last_heartbeat TIMESTAMP,
+   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE active_sessions 
+ADD COLUMN partner_id INTEGER REFERENCES partners(id) ON DELETE CASCADE,
+ADD CONSTRAINT unique_partner_telegram UNIQUE (partner_id, telegram_id);
+
+
+ALTER TABLE kyc_applications 
+ADD COLUMN partner_id INTEGER REFERENCES partners(id) ON DELETE CASCADE,
+DROP COLUMN emeterai_token,
+DROP COLUMN emeterai_token_expires;
+
+
+ALTER TABLE kyc_photos
+ADD COLUMN partner_id INTEGER REFERENCES partners(id) ON DELETE CASCADE;
+
+
+CREATE INDEX idx_partners_active ON partners(is_active);
+CREATE INDEX idx_partners_bot_token ON partners(bot_token) WHERE is_active = true;
+CREATE INDEX idx_sessions_partner_telegram ON active_sessions(partner_id, telegram_id);
+CREATE INDEX idx_applications_partner ON kyc_applications(partner_id);
+CREATE INDEX idx_applications_partner_status ON kyc_applications(partner_id, status);
+CREATE INDEX idx_photos_partner_application ON kyc_photos(partner_id, application_id);
+CREATE INDEX idx_instances_partner_status ON bot_instances(partner_id, status);
+
+
+
+INSERT INTO banks (bank_display) VALUES
 ('Bank Central Asia'),
 ('Bank Mandiri'),
 ('Bank Negara Indonesia'),
@@ -138,7 +191,7 @@ INSERT INTO banks (name) VALUES
 ('Bank Mega'),
 ('Bank OCBC NISP');
 
--- Insert sample business fields
+
 INSERT INTO business_fields (name) VALUES
 ('Toko Kelontong'),
 ('Warung Makan'),
@@ -152,7 +205,7 @@ INSERT INTO business_fields (name) VALUES
 
 
 
--- Insert Provinces
+
 INSERT INTO provinces (code, name) VALUES
 ('0100', 'Jawa Barat'),
 ('0300', 'DKI Jakarta Raya'),
@@ -184,8 +237,8 @@ INSERT INTO provinces (code, name) VALUES
 ('8300', 'Maluku Utara'),
 ('9900', 'DI LUAR INDONESIA');
 
--- Insert Cities
--- Jawa Barat (0100)
+
+
 INSERT INTO cities (code, name, province_code) VALUES
 ('0101', 'Kab. Tangerang', '0100'),
 ('0102', 'Kab. Bekasi', '0100'),
@@ -220,21 +273,21 @@ INSERT INTO cities (code, name, province_code) VALUES
 ('0198', 'Kotif Bekasi', '0100'),
 ('0199', 'Kodya Tangerang', '0100'),
 
--- DKI Jakarta Raya (0300)
+
 ('0391', 'Wil. Kota Jakarta Pusat', '0300'),
 ('0392', 'Wil. Kota Jakarta Utara', '0300'),
 ('0393', 'Wil. Kota Jakarta Barat', '0300'),
 ('0394', 'Wil. Kota Jakarta Selatan', '0300'),
 ('0395', 'Wil. Kota Jakarta Timur', '0300'),
 
--- D.I. Yogyakarta (0500)
+
 ('0501', 'Kab. Bantul', '0500'),
 ('0502', 'Kab. Sleman', '0500'),
 ('0503', 'Kab. Gunung Kidul', '0500'),
 ('0504', 'Kab. Kulon Progo', '0500'),
 ('0591', 'Kodya Yogyakarta', '0500'),
 
--- Jawa Tengah (0900)
+
 ('0901', 'Kab. Semarang', '0900'),
 ('0902', 'Kab. Kendal', '0900'),
 ('0903', 'Kab. Demak', '0900'),
@@ -274,7 +327,7 @@ INSERT INTO cities (code, name, province_code) VALUES
 ('0998', 'Kotif Cilacap', '0900'),
 ('0999', 'Kotif Purwokerto', '0900'),
 
--- Jawa Timur (1200)
+
 ('1201', 'Kab. Gresik', '1200'),
 ('1202', 'Kab. Sidoarjo', '1200'),
 ('1203', 'Kab. Mojokerto', '1200'),
@@ -314,13 +367,13 @@ INSERT INTO cities (code, name, province_code) VALUES
 ('1298', 'Kodya Madiun', '1200'),
 ('1299', 'Kotif Jember', '1200'),
 
--- Bengkulu (2300)
+
 ('2301', 'Kab. Bengkulu Selatan', '2300'),
 ('2302', 'Kab. Bengkulu Utara', '2300'),
 ('2303', 'Kab. Rejang Lebong', '2300'),
 ('2391', 'Kodya Bengkulu', '2300'),
 
--- Jambi (3100)
+
 ('3101', 'Kab. Batanghari', '3100'),
 ('3104', 'Kab. Sarolangun', '3100'),
 ('3105', 'Kab. Kerinci', '3100'),
@@ -332,7 +385,7 @@ INSERT INTO cities (code, name, province_code) VALUES
 ('3111', 'Kab. Marangin', '3100'),
 ('3191', 'Kodya Jambi', '3100'),
 
--- D.I. Aceh (3200)
+
 ('3201', 'Kab. Aceh Besar', '3200'),
 ('3202', 'Kab. Pidie', '3200'),
 ('3203', 'Kab. Aceh Utara', '3200'),
@@ -349,7 +402,7 @@ INSERT INTO cities (code, name, province_code) VALUES
 ('3294', 'Kotif Langsa', '3200'),
 ('3295', 'Kotif Simeulue', '3200'),
 
--- Sumatera Utara (3300)
+
 ('3301', 'Kab. Deli Serdang', '3300'),
 ('3302', 'Kab. Langkat', '3300'),
 ('3303', 'Kab. Karo', '3300'),
@@ -373,7 +426,7 @@ INSERT INTO cities (code, name, province_code) VALUES
 ('3398', 'Kotif Kisaran', '3300'),
 ('3399', 'Kotif Padang Sidempuan', '3300'),
 
--- Sumatera Barat (3400)
+
 ('3401', 'Kab. Agam', '3400'),
 ('3402', 'Kab. Pasaman', '3400'),
 ('3403', 'Kab. Limapuluh Koto', '3400'),
@@ -391,7 +444,7 @@ INSERT INTO cities (code, name, province_code) VALUES
 ('3496', 'Kodya Payakumbuh', '3400'),
 ('3497', 'Kotif Pariaman', '3400'),
 
--- Riau (3500)
+
 ('3501', 'Kab. Kampar', '3500'),
 ('3502', 'Kab. Bengkalis', '3500'),
 ('3503', 'Kab. Riau Kepulauan', '3500'),
@@ -409,7 +462,7 @@ INSERT INTO cities (code, name, province_code) VALUES
 ('3593', 'Kotif Tanjungpinang', '3500'),
 ('3594', 'Kotif Pulau Batam', '3500'),
 
--- Sumatera Selatan (3600)
+
 ('3604', 'Kab. Belitung', '3600'),
 ('3605', 'Kab. Bangka', '3600'),
 ('3606', 'Kab. Musi Banyuasin', '3600'),
@@ -426,7 +479,7 @@ INSERT INTO cities (code, name, province_code) VALUES
 ('3695', 'Kotif Baturaja', '3600'),
 ('3697', 'Kotif Pagar Alam', '3600'),
 
--- Lampung (3900)
+
 ('3901', 'Kab.Lampung Selatan', '3900'),
 ('3902', 'Kab. Lampung Tengah', '3900'),
 ('3903', 'Kab. Lampung Utara', '3900'),
@@ -438,7 +491,7 @@ INSERT INTO cities (code, name, province_code) VALUES
 ('3991', 'Kodya Bandar Lampung', '3900'),
 ('3992', 'Kotif Metro', '3900'),
 
--- Kalimantan Selatan (5100)
+
 ('5101', 'Kab. Banjar', '5100'),
 ('5102', 'Kab. Tanah Laut', '5100'),
 ('5103', 'Kab. Tapin', '5100'),
@@ -452,7 +505,7 @@ INSERT INTO cities (code, name, province_code) VALUES
 ('5191', 'Kodya Banjarmasin', '5100'),
 ('5192', 'Kotif Banjarbaru', '5100'),
 
--- Kalimantan Barat (5300)
+
 ('5301', 'Kab. Pontianak', '5300'),
 ('5302', 'Kab. Sambas', '5300'),
 ('5303', 'Kab. Ketapang', '5300'),
@@ -464,7 +517,7 @@ INSERT INTO cities (code, name, province_code) VALUES
 ('5391', 'Kodya Pontianak', '5300'),
 ('5392', 'Kotif Singkawang', '5300'),
 
--- Kalimantan Timur (5400)
+
 ('5401', 'Kab. Kutai', '5400'),
 ('5402', 'Kab. Berau', '5400'),
 ('5403', 'Kab. Tanah Pasir', '5400'),
@@ -481,7 +534,7 @@ INSERT INTO cities (code, name, province_code) VALUES
 ('5494', 'Kotif Bontang', '5400'),
 ('5495', 'Kab. Malinau', '5400'),
 
--- Kalimantan Tengah (5800)
+
 ('5801', 'Kab. Kapuas', '5800'),
 ('5803', 'Kab. Kotawaringin Barat', '5800'),
 ('5804', 'Kab. Kotawaringin Timur', '5800'),
@@ -489,7 +542,7 @@ INSERT INTO cities (code, name, province_code) VALUES
 ('5808', 'Kab. Barito Utara', '5800'),
 ('5892', 'Kodya Palangkaraya', '5800'),
 
--- Sulawesi Tengah (6000)
+
 ('6001', 'Kab. Donggala', '6000'),
 ('6002', 'Kab. Poso', '6000'),
 ('6003', 'Kab. Banggai', '6000'),
@@ -499,7 +552,7 @@ INSERT INTO cities (code, name, province_code) VALUES
 ('6007', 'Kab. Buol', '6000'),
 ('6091', 'Kotif Palu', '6000'),
 
--- Sulawesi Selatan (6100)
+
 ('6101', 'Kab. Pinrang', '6100'),
 ('6102', 'Kab. Gowa', '6100'),
 ('6103', 'Kab. Wajo', '6100'),
@@ -527,7 +580,7 @@ INSERT INTO cities (code, name, province_code) VALUES
 ('6193', 'Kotif Palopo', '6100'),
 ('6194', 'Kotif Watampone', '6100'),
 
--- Sulawesi Utara (6200)
+
 ('6201', 'Kab. Gorontalo', '6200'),
 ('6202', 'Kab. Minahasa', '6200'),
 ('6203', 'Kab. Bolaang Mongondow', '6200'),
@@ -538,7 +591,7 @@ INSERT INTO cities (code, name, province_code) VALUES
 ('6292', 'Kodya Gorontalo', '6200'),
 ('6293', 'Kodya Bitung', '6200'),
 
--- Sulawesi Tenggara (6900)
+
 ('6901', 'Kab. Buton', '6900'),
 ('6902', 'Kab. Kendari', '6900'),
 ('6903', 'Kab. Muna', '6900'),
@@ -546,7 +599,7 @@ INSERT INTO cities (code, name, province_code) VALUES
 ('6990', 'Kotif Bau-bau', '6900'),
 ('6991', 'Kotif Kendari', '6900'),
 
--- Nusa Tenggara Barat (7100)
+
 ('7101', 'Kab. Lombok Barat', '7100'),
 ('7102', 'Kab. Lombok Tengah', '7100'),
 ('7103', 'Kab. Lombok Timur', '7100'),
@@ -555,7 +608,7 @@ INSERT INTO cities (code, name, province_code) VALUES
 ('7106', 'Kab. Dompu', '7100'),
 ('7191', 'Kodya Mataram', '7100'),
 
--- Bali (7200)
+
 ('7201', 'Kab. Buleleng', '7200'),
 ('7202', 'Kab. Jembrana', '7200'),
 ('7203', 'Kab. Tabanan', '7200'),
@@ -566,7 +619,7 @@ INSERT INTO cities (code, name, province_code) VALUES
 ('7208', 'Kab. Karangasem', '7200'),
 ('7291', 'Kodya Denpasar', '7200'),
 
--- Nusa Tenggara Timur (7400)
+
 ('7401', 'Kab. Kupang', '7400'),
 ('7402', 'Kab. Timor-Tengah Selatan', '7400'),
 ('7403', 'Kab. Timor-Tengah Utara', '7400'),
@@ -582,7 +635,7 @@ INSERT INTO cities (code, name, province_code) VALUES
 ('7413', 'Kab. Lawoleba', '7400'),
 ('7491', 'Kotif Kupang', '7400'),
 
--- Timor Timur (7500)
+
 ('7501', 'Kab. Dili', '7500'),
 ('7502', 'Kab. Baucau', '7500'),
 ('7503', 'Kab. Manatuto', '7500'),
@@ -598,12 +651,12 @@ INSERT INTO cities (code, name, province_code) VALUES
 ('7513', 'Kab. Aileu', '7500'),
 ('7590', 'Kotif Dili', '7500'),
 
--- Maluku (8100)
+
 ('8101', 'Kab. Maluku Tengah', '8100'),
 ('8102', 'Kab. Maluku Tenggara', '8100'),
 ('8191', 'Kodya Ambon', '8100'),
 
--- Irian Jaya (8200)
+
 ('8201', 'Kab. Jayapura', '8200'),
 ('8202', 'Kab.Tlk Cendrawasih/Biak Numfor', '8200'),
 ('8204', 'Kab. Sorong', '8200'),
@@ -619,10 +672,10 @@ INSERT INTO cities (code, name, province_code) VALUES
 ('8291', 'Kotif Jayapura', '8200'),
 ('8292', 'Kodya Sorong', '8200'),
 
--- Maluku Utara (8300)
+
 ('8301', 'Kab. maluku Utara', '8300'),
 ('8302', 'Kab. Halmahera Tengah', '8300'),
 ('8390', 'Kotif ternate', '8300'),
 
--- DI LUAR INDONESIA (9900)
+
 ('9999', 'DI LUAR INDONESIA', '9900');

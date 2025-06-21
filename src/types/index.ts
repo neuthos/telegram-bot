@@ -1,10 +1,11 @@
 export interface UserSession {
   id?: number;
+  partner_id: number;
   telegram_id: number;
   username?: string;
   first_name?: string;
   last_name?: string;
-  current_step: string;
+  current_step: SessionStep;
   form_data: FormData;
   created_at?: Date;
   updated_at?: Date;
@@ -12,12 +13,11 @@ export interface UserSession {
 
 export interface KYCApplication {
   id?: number;
+  partner_id: number;
   telegram_id: number;
   username?: string;
   first_name?: string;
   last_name?: string;
-
-  // Form fields
   agent_name: string;
   agent_address: string;
   owner_name: string;
@@ -29,49 +29,42 @@ export interface KYCApplication {
   account_holder_name: string;
   bank_name: string;
   account_number: string;
-  admin_confirmed_at?: Date;
-  admin_rejected_at?: Date;
-  confirmed_by_name?: string;
-  confirmed_by_initial?: string;
-  confirmed_by_partner?: string;
-  user_emeterai_consent?: boolean;
-
-  // System fields
+  province_code?: string;
+  province_name?: string;
+  city_code?: string;
+  city_name?: string;
   confirm_date?: Date;
   signature_initial: string;
   status: "draft" | "confirmed" | "rejected";
   remark?: string;
   pdf_url?: string;
-
-  // E-Meterai fields
+  confirmed_by_name?: string;
+  confirmed_by_initial?: string;
+  confirmed_by_partner?: string;
+  admin_confirmed_at?: Date;
+  admin_rejected_at?: Date;
   emeterai_status: EmeteraiStatus;
   emeterai_transaction_id?: string;
-  emeterai_token?: string;
-  emeterai_token_expires?: Date;
   emeterai_sn?: string;
   stamped_pdf_url?: string;
   stamped_by?: string;
   stamped_at?: Date;
-  is_processed?: boolean;
-  province_code?: string;
-  province_name?: string;
-  city_code?: string;
-  city_name?: string;
-
+  user_emeterai_consent?: boolean;
+  is_processed: boolean;
   created_at?: Date;
   updated_at?: Date;
 }
 
 export interface KYCPhoto {
   id?: number;
+  partner_id: number;
   application_id: number;
   photo_type: "location_photos" | "bank_book" | "id_card";
-  file_path: string;
+  file_url: string;
   file_name: string;
   file_size?: number;
   uploaded_at?: Date;
 }
-
 export interface FormData {
   agent_name?: string;
   agent_address?: string;
@@ -289,4 +282,29 @@ export interface BulkRejectRequest {
   name: string;
   initial: string;
   partner_name: string;
+}
+
+export interface Partner {
+  id: number;
+  name: string;
+  bot_token: string;
+  api_secret: string;
+  webhook_url?: string;
+  is_active: boolean;
+  rate_limit: number;
+  emeterai_client_id?: string;
+  emeterai_client_email?: string;
+  emeterai_client_password?: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface BotInstance {
+  id: number;
+  partner_id: number;
+  instance_id: string;
+  hostname: string;
+  status: "active" | "inactive" | "error";
+  last_heartbeat: Date;
+  created_at: Date;
 }

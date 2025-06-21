@@ -13,7 +13,8 @@ export class CDNService {
   public async uploadFile(
     fileBuffer: Buffer,
     fileName: string,
-    mimeType: string
+    mimeType: string,
+    folderPath?: string
   ): Promise<string> {
     try {
       const formData = new FormData();

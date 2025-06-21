@@ -19,12 +19,14 @@ export class MessageHandler {
 
   public async handleMessage(
     bot: TelegramBot,
-    msg: TelegramBot.Message
+    msg: TelegramBot.Message,
+    partnerId: number
   ): Promise<void> {
     const telegramId = msg.from!.id;
     const text = msg.text?.trim();
 
     this.logger.info("Message received:", {
+      partnerId,
       telegramId,
       username: msg.from!.username,
       text: text || "[photo/file]",
@@ -34,16 +36,19 @@ export class MessageHandler {
     });
 
     try {
-      // Handle commands first
       if (text?.startsWith("/")) {
-        await this.handleCommand(bot, telegramId, text, msg);
+        await this.handleCommand(bot, telegramId, text, msg, partnerId);
         return;
       }
 
       const registrationCheck = await this.sessionService.canUserRegister(
+        partnerId,
         telegramId
       );
-      const session = await this.sessionService.getActiveSession(telegramId);
+      const session = await this.sessionService.getActiveSession(
+        partnerId,
+        telegramId
+      );
 
       if (!registrationCheck.canRegister) {
         if (registrationCheck.reason === "already_confirmed") {
@@ -60,11 +65,11 @@ export class MessageHandler {
         return;
       }
 
-      // For users who can register (new users or rejected users)
       let activeSession = session;
 
       if (!activeSession) {
         activeSession = await this.sessionService.createOrUpdateSession({
+          partner_id: partnerId,
           telegram_id: telegramId,
           username: msg.from!.username,
           first_name: msg.from!.first_name,
@@ -86,9 +91,14 @@ export class MessageHandler {
         return;
       }
 
-      await this.processMessage(bot, msg, activeSession);
+      await this.processMessage(bot, msg, activeSession, partnerId);
     } catch (error) {
-      this.logger.error("Error handling message:", {telegramId, text, error});
+      this.logger.error("Error handling message:", {
+        partnerId,
+        telegramId,
+        text,
+        error,
+      });
       await bot.sendMessage(
         telegramId,
         this.messages.generateSystemErrorMessage()
@@ -100,15 +110,17 @@ export class MessageHandler {
     bot: TelegramBot,
     telegramId: number,
     command: string,
-    msg: TelegramBot.Message
+    msg: TelegramBot.Message,
+    partnerId: number
   ): Promise<void> {
-    this.logger.info("Command received:", {telegramId, command});
+    this.logger.info("Command received:", {partnerId, telegramId, command});
 
     const registrationCheck = await this.sessionService.canUserRegister(
+      partnerId,
       telegramId
     );
     const registeredUser = !registrationCheck.canRegister
-      ? await this.sessionService.getKYCApplication(telegramId)
+      ? await this.sessionService.getKYCApplication(partnerId, telegramId)
       : null;
 
     switch (command) {
@@ -131,7 +143,7 @@ export class MessageHandler {
             registeredUser!
           );
         } else {
-          await this.handleMenuToMain(bot, telegramId, msg);
+          await this.handleMenuToMain(bot, telegramId, msg, partnerId);
         }
         break;
       case "/daftar":
@@ -148,11 +160,18 @@ export class MessageHandler {
             );
           }
         } else {
-          await this.handleMenuSelection(bot, telegramId, "Daftar KYC", msg);
+          await this.handleMenuSelection(
+            bot,
+            telegramId,
+            "Daftar KYC",
+            msg,
+            partnerId
+          );
         }
         break;
       case "/lihat":
         const anyApplication = await this.sessionService.getKYCApplication(
+          partnerId,
           telegramId
         );
         await this.handleViewCommand(bot, telegramId, anyApplication);
@@ -162,7 +181,8 @@ export class MessageHandler {
           bot,
           telegramId,
           "Mulai Pendaftaran Baru",
-          msg
+          msg,
+          partnerId
         );
         break;
       case "/lanjut":
@@ -170,14 +190,14 @@ export class MessageHandler {
           bot,
           telegramId,
           "Lanjutkan Sesi Pendaftaran",
-          msg
+          msg,
+          partnerId
         );
         break;
-
       case "/setuju":
       case "/tidaksetuju":
-        // Priority 1: Check active session untuk terms & conditions dulu
         const activeSession = await this.sessionService.getActiveSession(
+          partnerId,
           telegramId
         );
 
@@ -189,7 +209,8 @@ export class MessageHandler {
               telegramId,
               action,
               activeSession,
-              msg
+              msg,
+              partnerId
             );
             return;
           } else if (activeSession.current_step === SessionStep.CONFIRMATION) {
@@ -202,15 +223,18 @@ export class MessageHandler {
               telegramId,
               action,
               activeSession,
-              msg
+              msg,
+              partnerId
             );
             return;
           }
         }
 
-        // Priority 2: Check confirmed application untuk e-meterai consent
         const application =
-          await this.sessionService.getKYCApplicationByTelegramId(telegramId);
+          await this.sessionService.getKYCApplicationByTelegramId(
+            partnerId,
+            telegramId
+          );
         if (
           application &&
           application.status === "confirmed" &&
@@ -225,53 +249,26 @@ export class MessageHandler {
           return;
         }
 
-        // Priority 3: Default unknown message
-        await this.handleUnknownMessage(bot, telegramId);
-        break;
-      case "/ya":
-      case "/tidak":
-        const confirmSession = await this.sessionService.getActiveSession(
-          telegramId
-        );
-        if (!confirmSession) {
-          await bot.sendMessage(
-            telegramId,
-            this.messages.generateNoActiveSessionMessage()
-          );
-          return;
-        }
-
-        if (confirmSession.current_step === SessionStep.CONFIRMATION) {
-          const action =
-            command === "/ya" ? "Ya, Daftarkan" : "Tidak, Ulangi Pendaftaran";
-          await this.handleConfirmation(
-            bot,
-            telegramId,
-            action,
-            confirmSession,
-            msg
-          );
-        } else {
-          await this.handleUnknownMessage(bot, telegramId);
-        }
+        await this.handleUnknownMessage(bot, telegramId, partnerId);
         break;
       case "/skip":
-        await this.handleSkipCommand(bot, telegramId);
+        await this.handleSkipCommand(bot, telegramId, partnerId);
         break;
       case "/help":
         await this.sendHelpMessage(bot, telegramId);
         break;
       default:
-        // Check if it's a bank command
         if (command.startsWith("/") && command.length > 1) {
           const session = await this.sessionService.getActiveSession(
+            partnerId,
             telegramId
           );
           if (session && session.current_step === SessionStep.BANK_NAME) {
             await this.handleBankSelection(
               bot,
               telegramId,
-              command.substring(1)
+              command.substring(1),
+              partnerId
             );
             return;
           }
@@ -280,7 +277,8 @@ export class MessageHandler {
             await this.handleBusinessFieldSelection(
               bot,
               telegramId,
-              command.substring(1)
+              command.substring(1),
+              partnerId
             );
             return;
           }
@@ -292,7 +290,8 @@ export class MessageHandler {
             await this.handleProvinceSelection(
               bot,
               telegramId,
-              command.substring(1)
+              command.substring(1),
+              partnerId
             );
             return;
           }
@@ -301,24 +300,29 @@ export class MessageHandler {
             await this.handleCitySelection(
               bot,
               telegramId,
-              command.substring(1)
+              command.substring(1),
+              partnerId
             );
             return;
           }
         }
-        await this.handleUnknownMessage(bot, telegramId);
+        await this.handleUnknownMessage(bot, telegramId, partnerId);
     }
   }
 
   private async handleBankSelection(
     bot: TelegramBot,
     telegramId: number,
-    bankCommand: string
+    bankCommand: string,
+    partnerId: number
   ): Promise<void> {
-    const session = await this.sessionService.getActiveSession(telegramId);
+    const session = await this.sessionService.getActiveSession(
+      partnerId,
+      telegramId
+    );
 
     if (!session || session.current_step !== SessionStep.BANK_NAME) {
-      await this.handleUnknownMessage(bot, telegramId);
+      await this.handleUnknownMessage(bot, telegramId, partnerId);
       return;
     }
 
@@ -336,6 +340,7 @@ export class MessageHandler {
 
     session.form_data.bank_name = bankName;
     await this.sessionService.createOrUpdateSession({
+      partner_id: partnerId,
       telegram_id: telegramId,
       current_step: SessionStep.ACCOUNT_NUMBER,
       form_data: session.form_data,
@@ -354,72 +359,137 @@ export class MessageHandler {
   private async processMessage(
     bot: TelegramBot,
     msg: TelegramBot.Message,
-    session: any
+    session: any,
+    partnerId: number
   ): Promise<void> {
     const telegramId = msg.from!.id;
     const text = msg.text?.trim();
 
     if (msg.photo && this.isPhotoStep(session.current_step)) {
-      await this.handlePhotoUpload(bot, msg, session);
+      await this.handlePhotoUpload(bot, msg, session, partnerId);
       return;
     }
 
-    if (
-      (text === "/ya" || text === "/tidak") &&
-      session.current_step === SessionStep.CONFIRMATION
-    ) {
-      const action =
-        text === "/ya" ? "Ya, Daftarkan" : "Tidak, Ulangi Pendaftaran";
-      await this.handleConfirmation(bot, telegramId, action, session, msg);
-      return;
-    }
     switch (session.current_step) {
       case SessionStep.MENU:
-        await this.handleMenuSelection(bot, telegramId, text!, msg);
+        await this.handleMenuSelection(bot, telegramId, text!, msg, partnerId);
         break;
       case SessionStep.REGISTRATION_START:
-        await this.handleRegistrationOption(bot, telegramId, text!, msg);
+        await this.handleRegistrationOption(
+          bot,
+          telegramId,
+          text!,
+          msg,
+          partnerId
+        );
         break;
       case SessionStep.AGENT_NAME:
-        await this.handleAgentNameInput(bot, telegramId, text!, session);
+        await this.handleAgentNameInput(
+          bot,
+          telegramId,
+          text!,
+          session,
+          partnerId
+        );
         break;
       case SessionStep.AGENT_ADDRESS:
-        await this.handleAgentAddressInput(bot, telegramId, text!, session);
+        await this.handleAgentAddressInput(
+          bot,
+          telegramId,
+          text!,
+          session,
+          partnerId
+        );
         break;
       case SessionStep.OWNER_NAME:
-        await this.handleOwnerNameInput(bot, telegramId, text!, session);
+        await this.handleOwnerNameInput(
+          bot,
+          telegramId,
+          text!,
+          session,
+          partnerId
+        );
         break;
       case SessionStep.BUSINESS_FIELD:
-        await this.handleBusinessFieldInput(bot, telegramId, text!, session);
+        await this.handleBusinessFieldInput(
+          bot,
+          telegramId,
+          text!,
+          session,
+          partnerId
+        );
         break;
       case SessionStep.PIC_NAME:
-        await this.handlePICNameInput(bot, telegramId, text!, session);
+        await this.handlePICNameInput(
+          bot,
+          telegramId,
+          text!,
+          session,
+          partnerId
+        );
         break;
       case SessionStep.PIC_PHONE:
-        await this.handlePICPhoneInput(bot, telegramId, text!, session);
+        await this.handlePICPhoneInput(
+          bot,
+          telegramId,
+          text!,
+          session,
+          partnerId
+        );
         break;
       case SessionStep.ID_CARD_NUMBER:
-        await this.handleIdCardNumberInput(bot, telegramId, text!, session);
+        await this.handleIdCardNumberInput(
+          bot,
+          telegramId,
+          text!,
+          session,
+          partnerId
+        );
         break;
       case SessionStep.TAX_NUMBER:
-        await this.handleTaxNumberInput(bot, telegramId, text!, session);
+        await this.handleTaxNumberInput(
+          bot,
+          telegramId,
+          text!,
+          session,
+          partnerId
+        );
         break;
       case SessionStep.ACCOUNT_HOLDER_NAME:
         await this.handleAccountHolderNameInput(
           bot,
           telegramId,
           text!,
-          session
+          session,
+          partnerId
         );
         break;
       case SessionStep.BANK_NAME:
-        await this.handleBankNameInput(bot, telegramId, text!, session);
+        await this.handleBankNameInput(
+          bot,
+          telegramId,
+          text!,
+          session,
+          partnerId
+        );
         break;
       case SessionStep.ACCOUNT_NUMBER:
-        await this.handleAccountNumberInput(bot, telegramId, text!, session);
+        await this.handleAccountNumberInput(
+          bot,
+          telegramId,
+          text!,
+          session,
+          partnerId
+        );
         break;
       case SessionStep.SIGNATURE_INITIAL:
-        await this.handleSignatureInitialInput(bot, telegramId, text!, session);
+        await this.handleSignatureInitialInput(
+          bot,
+          telegramId,
+          text!,
+          session,
+          partnerId
+        );
         break;
       case SessionStep.LOCATION_PHOTOS:
         if (text === "/lanjut") {
@@ -427,7 +497,8 @@ export class MessageHandler {
             bot,
             telegramId,
             session,
-            SessionStep.BANK_BOOK_PHOTO
+            SessionStep.BANK_BOOK_PHOTO,
+            partnerId
           );
         } else {
           await bot.sendMessage(
@@ -449,19 +520,39 @@ export class MessageHandler {
         );
         break;
       case SessionStep.TERMS_CONDITIONS:
-        await this.handleTermsConditions(bot, telegramId, text!, session, msg);
+        await this.handleTermsConditions(
+          bot,
+          telegramId,
+          text!,
+          session,
+          msg,
+          partnerId
+        );
         break;
       case SessionStep.CONFIRMATION:
-        await this.handleConfirmation(bot, telegramId, text!, session, msg);
+        await this.handleConfirmation(
+          bot,
+          telegramId,
+          text!,
+          session,
+          msg,
+          partnerId
+        );
         break;
       case SessionStep.PROVINCE_SELECTION:
-        await this.handleProvinceInput(bot, telegramId, text!, session);
+        await this.handleProvinceInput(
+          bot,
+          telegramId,
+          text!,
+          session,
+          partnerId
+        );
         break;
       case SessionStep.CITY_SELECTION:
-        await this.handleCityInput(bot, telegramId, text!, session);
+        await this.handleCityInput(bot, telegramId, text!, session, partnerId);
         break;
       default:
-        await this.handleUnknownMessage(bot, telegramId);
+        await this.handleUnknownMessage(bot, telegramId, partnerId);
     }
   }
 
@@ -469,7 +560,8 @@ export class MessageHandler {
     bot: TelegramBot,
     telegramId: number,
     text: string,
-    session: any
+    session: any,
+    partnerId: number
   ): Promise<void> {
     if (!text.startsWith("/")) {
       const bankMessage = await this.messages.generateBankSelectionMessage();
@@ -493,6 +585,7 @@ export class MessageHandler {
 
     session.form_data.bank_name = bankName;
     await this.sessionService.createOrUpdateSession({
+      partner_id: partnerId,
       telegram_id: telegramId,
       current_step: SessionStep.ACCOUNT_NUMBER,
       form_data: session.form_data,
@@ -519,7 +612,8 @@ export class MessageHandler {
   private async handlePhotoUpload(
     bot: TelegramBot,
     msg: TelegramBot.Message,
-    session: any
+    session: any,
+    partnerId: number
   ): Promise<void> {
     const telegramId = msg.from!.id;
     const photo = msg.photo![msg.photo!.length - 1];
@@ -529,7 +623,7 @@ export class MessageHandler {
       const uploadResult = await this.fileService.downloadAndUploadPhoto(
         bot,
         photo.file_id,
-        telegramId,
+        `${partnerId}/${telegramId}`,
         photoType
       );
 
@@ -545,18 +639,19 @@ export class MessageHandler {
             );
             return;
           }
-          session.form_data.location_photos.push(uploadResult.fileUrl);
+          session.form_data.location_photos.push(uploadResult.url);
           break;
         case SessionStep.BANK_BOOK_PHOTO:
-          session.form_data.bank_book_photo = uploadResult.fileUrl;
+          session.form_data.bank_book_photo = uploadResult.url;
           break;
         case SessionStep.ID_CARD_PHOTO:
-          session.form_data.id_card_photo = uploadResult.fileUrl;
+          session.form_data.id_card_photo = uploadResult.url;
           break;
       }
 
-      await this.sessionService.createOrUpdateSession({
-        telegram_id: telegramId,
+      const updatedSession = await this.sessionService.createOrUpdateSession({
+        ...session,
+        partner_id: partnerId,
         current_step: session.current_step,
         form_data: session.form_data,
       });
@@ -572,8 +667,9 @@ export class MessageHandler {
           await this.proceedToNextStep(
             bot,
             telegramId,
-            session,
-            SessionStep.BANK_BOOK_PHOTO
+            updatedSession,
+            SessionStep.BANK_BOOK_PHOTO,
+            partnerId
           );
         }
       } else {
@@ -584,11 +680,18 @@ export class MessageHandler {
 
         const nextStep = await this.getNextStepAfterPhoto(photoType);
         if (nextStep) {
-          await this.proceedToNextStep(bot, telegramId, session, nextStep);
+          await this.proceedToNextStep(
+            bot,
+            telegramId,
+            updatedSession,
+            nextStep,
+            partnerId
+          );
         }
       }
     } catch (error) {
       this.logger.error("Error handling photo upload:", {
+        partnerId,
         telegramId,
         photoType: session.current_step,
         error,
@@ -599,7 +702,6 @@ export class MessageHandler {
       );
     }
   }
-
   private async getNextStepAfterPhoto(
     currentStep: string
   ): Promise<SessionStep | null> {
@@ -617,9 +719,11 @@ export class MessageHandler {
     bot: TelegramBot,
     telegramId: number,
     session: any,
-    nextStep: SessionStep
+    nextStep: SessionStep,
+    partnerId: number
   ): Promise<void> {
     await this.sessionService.createOrUpdateSession({
+      partner_id: partnerId,
       telegram_id: telegramId,
       current_step: nextStep,
       form_data: session.form_data,
@@ -642,6 +746,7 @@ export class MessageHandler {
       );
     }
   }
+
   // Welcome Messages
   private async sendWelcomeMessage(
     bot: TelegramBot,
@@ -672,13 +777,16 @@ export class MessageHandler {
   private async handleMenuToMain(
     bot: TelegramBot,
     telegramId: number,
-    msg: TelegramBot.Message
+    msg: TelegramBot.Message,
+    partnerId: number
   ): Promise<void> {
     const existingSession = await this.sessionService.getActiveSession(
+      partnerId,
       telegramId
     );
 
     await this.sessionService.createOrUpdateSession({
+      partner_id: partnerId,
       telegram_id: telegramId,
       username: msg.from!.username,
       first_name: msg.from!.first_name,
@@ -693,15 +801,18 @@ export class MessageHandler {
     bot: TelegramBot,
     telegramId: number,
     text: string,
-    msg: TelegramBot.Message
+    msg: TelegramBot.Message,
+    partnerId: number
   ): Promise<void> {
     switch (text) {
       case "Daftar KYC":
         const existingSession = await this.sessionService.getActiveSession(
+          partnerId,
           telegramId
         );
 
         await this.sessionService.createOrUpdateSession({
+          partner_id: partnerId,
           telegram_id: telegramId,
           username: msg.from!.username,
           first_name: msg.from!.first_name,
@@ -717,23 +828,24 @@ export class MessageHandler {
         break;
       case "Menu Utama":
       case "Kembali ke Menu Utama":
-        await this.handleMenuToMain(bot, telegramId, msg);
+        await this.handleMenuToMain(bot, telegramId, msg, partnerId);
         break;
       default:
-        await this.handleUnknownMessage(bot, telegramId);
+        await this.handleUnknownMessage(bot, telegramId, partnerId);
     }
   }
 
-  // Registration Flow
   private async handleRegistrationOption(
     bot: TelegramBot,
     telegramId: number,
     text: string,
-    msg: TelegramBot.Message
+    msg: TelegramBot.Message,
+    partnerId: number
   ): Promise<void> {
     switch (text) {
       case "Mulai Pendaftaran Baru":
         await this.sessionService.createOrUpdateSession({
+          partner_id: partnerId,
           telegram_id: telegramId,
           username: msg.from!.username,
           first_name: msg.from!.first_name,
@@ -748,21 +860,23 @@ export class MessageHandler {
         );
         break;
       case "Lanjutkan Sesi Pendaftaran":
-        await this.continueRegistration(bot, telegramId);
+        await this.continueRegistration(bot, telegramId, partnerId);
         break;
       case "Kembali ke Menu Utama":
-        await this.handleMenuToMain(bot, telegramId, msg);
+        await this.handleMenuToMain(bot, telegramId, msg, partnerId);
         break;
       default:
-        await this.handleUnknownMessage(bot, telegramId);
+        await this.handleUnknownMessage(bot, telegramId, partnerId);
     }
   }
 
   private async startRegistration(
     bot: TelegramBot,
-    telegramId: number
+    telegramId: number,
+    partnerId: number
   ): Promise<void> {
     await this.sessionService.createOrUpdateSession({
+      partner_id: partnerId,
       telegram_id: telegramId,
       current_step: SessionStep.AGENT_NAME,
       form_data: {},
@@ -776,18 +890,23 @@ export class MessageHandler {
 
   private async continueRegistration(
     bot: TelegramBot,
-    telegramId: number
+    telegramId: number,
+    partnerId: number
   ): Promise<void> {
-    const session = await this.sessionService.getActiveSession(telegramId);
+    const session = await this.sessionService.getActiveSession(
+      partnerId,
+      telegramId
+    );
 
     if (!session || !session.form_data) {
-      await this.startRegistration(bot, telegramId);
+      await this.startRegistration(bot, telegramId, partnerId);
       return;
     }
 
     const nextStep = await this.sessionService.getNextStep(session.form_data);
 
     await this.sessionService.createOrUpdateSession({
+      partner_id: partnerId,
       telegram_id: telegramId,
       current_step: nextStep,
       form_data: session.form_data,
@@ -811,7 +930,8 @@ export class MessageHandler {
     bot: TelegramBot,
     telegramId: number,
     text: string,
-    session: any
+    session: any,
+    partnerId: number
   ): Promise<void> {
     if (!text || text.length < 3) {
       await bot.sendMessage(
@@ -826,6 +946,7 @@ export class MessageHandler {
       telegram_id: telegramId,
       current_step: SessionStep.PROVINCE_SELECTION,
       form_data: session.form_data,
+      partner_id: partnerId,
     });
 
     await bot.sendMessage(
@@ -846,7 +967,8 @@ export class MessageHandler {
     bot: TelegramBot,
     telegramId: number,
     text: string,
-    session: any
+    session: any,
+    partnerId: number
   ): Promise<void> {
     if (!text || text.length < 10) {
       await bot.sendMessage(
@@ -861,6 +983,7 @@ export class MessageHandler {
       telegram_id: telegramId,
       current_step: SessionStep.OWNER_NAME,
       form_data: session.form_data,
+      partner_id: partnerId,
     });
 
     await bot.sendMessage(
@@ -877,7 +1000,8 @@ export class MessageHandler {
     bot: TelegramBot,
     telegramId: number,
     text: string,
-    session: any
+    session: any,
+    partnerId: number
   ): Promise<void> {
     if (!text || text.length < 3) {
       await bot.sendMessage(
@@ -892,6 +1016,7 @@ export class MessageHandler {
       telegram_id: telegramId,
       current_step: SessionStep.BUSINESS_FIELD,
       form_data: session.form_data,
+      partner_id: partnerId,
     });
 
     await bot.sendMessage(
@@ -912,7 +1037,8 @@ export class MessageHandler {
     bot: TelegramBot,
     telegramId: number,
     text: string,
-    session: any
+    session: any,
+    partnerId: number
   ): Promise<void> {
     if (!text.startsWith("/")) {
       const businessFieldMessage =
@@ -940,8 +1066,9 @@ export class MessageHandler {
     session.form_data.business_field = businessField;
     await this.sessionService.createOrUpdateSession({
       telegram_id: telegramId,
-      current_step: SessionStep.PIC_NAME,
+      current_step: SessionStep.BUSINESS_FIELD,
       form_data: session.form_data,
+      partner_id: partnerId,
     });
 
     await bot.sendMessage(
@@ -958,7 +1085,8 @@ export class MessageHandler {
     bot: TelegramBot,
     telegramId: number,
     text: string,
-    session: any
+    session: any,
+    partnerId: number
   ): Promise<void> {
     if (!text || text.length < 3) {
       await bot.sendMessage(
@@ -973,6 +1101,7 @@ export class MessageHandler {
       telegram_id: telegramId,
       current_step: SessionStep.PIC_PHONE,
       form_data: session.form_data,
+      partner_id: partnerId,
     });
 
     await bot.sendMessage(
@@ -985,7 +1114,8 @@ export class MessageHandler {
     bot: TelegramBot,
     telegramId: number,
     text: string,
-    session: any
+    session: any,
+    partnerId: number
   ): Promise<void> {
     const phoneRegex = /^(\+62|62|0)8[1-9][0-9]{6,9}$/;
     if (!phoneRegex.test(text)) {
@@ -1001,6 +1131,7 @@ export class MessageHandler {
       telegram_id: telegramId,
       current_step: SessionStep.ID_CARD_NUMBER,
       form_data: session.form_data,
+      partner_id: partnerId,
     });
 
     await bot.sendMessage(
@@ -1017,7 +1148,8 @@ export class MessageHandler {
     bot: TelegramBot,
     telegramId: number,
     text: string,
-    session: any
+    session: any,
+    partnerId: number
   ): Promise<void> {
     const idCardRegex = /^[0-9]{16}$/;
     if (!idCardRegex.test(text)) {
@@ -1029,6 +1161,7 @@ export class MessageHandler {
     }
 
     const isIdCardRegistered = await this.sessionService.isIdCardRegistered(
+      partnerId,
       text
     );
     if (isIdCardRegistered) {
@@ -1044,6 +1177,7 @@ export class MessageHandler {
       telegram_id: telegramId,
       current_step: SessionStep.TAX_NUMBER,
       form_data: session.form_data,
+      partner_id: partnerId,
     });
 
     await bot.sendMessage(
@@ -1060,7 +1194,8 @@ export class MessageHandler {
     bot: TelegramBot,
     telegramId: number,
     text: string,
-    session: any
+    session: any,
+    partnerId: number
   ): Promise<void> {
     if (text && text.length > 0) {
       const taxRegex = /^[0-9]{15}$/;
@@ -1078,6 +1213,7 @@ export class MessageHandler {
       telegram_id: telegramId,
       current_step: SessionStep.ACCOUNT_HOLDER_NAME,
       form_data: session.form_data,
+      partner_id: partnerId,
     });
 
     const displayValue = text || "Tidak diisi";
@@ -1095,7 +1231,8 @@ export class MessageHandler {
     bot: TelegramBot,
     telegramId: number,
     text: string,
-    session: any
+    session: any,
+    partnerId: number
   ): Promise<void> {
     if (!text || text.length < 3) {
       await bot.sendMessage(
@@ -1110,6 +1247,7 @@ export class MessageHandler {
       telegram_id: telegramId,
       current_step: SessionStep.BANK_NAME,
       form_data: session.form_data,
+      partner_id: partnerId,
     });
 
     await bot.sendMessage(
@@ -1130,7 +1268,8 @@ export class MessageHandler {
     bot: TelegramBot,
     telegramId: number,
     text: string,
-    session: any
+    session: any,
+    partnerId: number
   ): Promise<void> {
     if (!text || text.length < 8 || text.length > 20) {
       await bot.sendMessage(
@@ -1145,6 +1284,7 @@ export class MessageHandler {
       telegram_id: telegramId,
       current_step: SessionStep.SIGNATURE_INITIAL,
       form_data: session.form_data,
+      partner_id: partnerId,
     });
 
     await bot.sendMessage(
@@ -1161,7 +1301,8 @@ export class MessageHandler {
     bot: TelegramBot,
     telegramId: number,
     text: string,
-    session: any
+    session: any,
+    partnerId: number
   ): Promise<void> {
     if (!text || text.length < 1 || text.length > 10) {
       await bot.sendMessage(
@@ -1176,6 +1317,7 @@ export class MessageHandler {
       telegram_id: telegramId,
       current_step: SessionStep.LOCATION_PHOTOS,
       form_data: session.form_data,
+      partner_id: partnerId,
     });
 
     await bot.sendMessage(
@@ -1190,9 +1332,13 @@ export class MessageHandler {
 
   private async handleSkipCommand(
     bot: TelegramBot,
-    telegramId: number
+    telegramId: number,
+    partnerId: number
   ): Promise<void> {
-    const session = await this.sessionService.getActiveSession(telegramId);
+    const session = await this.sessionService.getActiveSession(
+      partnerId,
+      telegramId
+    );
     if (!session) {
       await bot.sendMessage(
         telegramId,
@@ -1207,6 +1353,7 @@ export class MessageHandler {
         telegram_id: telegramId,
         current_step: SessionStep.ACCOUNT_HOLDER_NAME,
         form_data: session.form_data,
+        partner_id: partnerId,
       });
 
       await bot.sendMessage(
@@ -1230,7 +1377,8 @@ export class MessageHandler {
     telegramId: number,
     text: string,
     session: any,
-    msg: TelegramBot.Message
+    msg: TelegramBot.Message,
+    partnerId: number
   ): Promise<void> {
     switch (text) {
       case "Ya, Daftarkan":
@@ -1244,6 +1392,7 @@ export class MessageHandler {
           last_name: msg.from!.last_name,
           current_step: SessionStep.AGENT_NAME,
           form_data: {}, // Reset form data
+          partner_id: partnerId,
         });
 
         await bot.sendMessage(
@@ -1252,19 +1401,23 @@ export class MessageHandler {
         );
         break;
       case "Kembali ke Menu Utama":
-        await this.handleMenuToMain(bot, telegramId, msg);
+        await this.handleMenuToMain(bot, telegramId, msg, partnerId);
         break;
       default:
-        await this.handleUnknownMessage(bot, telegramId);
+        await this.handleUnknownMessage(bot, telegramId, partnerId);
     }
   }
 
   private async handleConfirmationCommand(
     bot: TelegramBot,
     telegramId: number,
-    action: string
+    action: string,
+    partnerId: number
   ): Promise<void> {
-    const session = await this.sessionService.getActiveSession(telegramId);
+    const session = await this.sessionService.getActiveSession(
+      partnerId,
+      telegramId
+    );
     if (
       !session ||
       (session.current_step !== SessionStep.CONFIRMATION &&
@@ -1293,13 +1446,21 @@ export class MessageHandler {
         telegramId,
         action,
         session,
-        mockMsg
+        mockMsg,
+        partnerId
       );
       return;
     }
 
     // Handle confirmation
-    await this.handleConfirmation(bot, telegramId, action, session, mockMsg);
+    await this.handleConfirmation(
+      bot,
+      telegramId,
+      action,
+      session,
+      mockMsg,
+      partnerId
+    );
   }
 
   private async processRegistration(
@@ -1375,14 +1536,17 @@ export class MessageHandler {
   // Error Handlers
   private async handleUnknownMessage(
     bot: TelegramBot,
-    telegramId: number
+    telegramId: number,
+    partnerId: number
   ): Promise<void> {
     const registrationCheck = await this.sessionService.canUserRegister(
+      partnerId,
       telegramId
     );
 
     if (!registrationCheck.canRegister) {
       const registeredUser = await this.sessionService.getKYCApplication(
+        partnerId,
         telegramId
       );
       await this.sendRegisteredWelcomeMessage(bot, telegramId, registeredUser!);
@@ -1401,7 +1565,8 @@ export class MessageHandler {
     telegramId: number,
     text: string,
     session: any,
-    msg: TelegramBot.Message
+    msg: TelegramBot.Message,
+    partnerId: number
   ): Promise<void> {
     switch (text) {
       case "Ya":
@@ -1411,6 +1576,7 @@ export class MessageHandler {
           telegram_id: telegramId,
           current_step: SessionStep.CONFIRMATION,
           form_data: session.form_data,
+          partner_id: partnerId,
         });
 
         await bot.sendMessage(
@@ -1428,6 +1594,7 @@ export class MessageHandler {
           last_name: msg.from!.last_name,
           current_step: SessionStep.MENU,
           form_data: {},
+          partner_id: partnerId,
         });
 
         await bot.sendMessage(
@@ -1437,7 +1604,7 @@ export class MessageHandler {
         break;
 
       case "Kembali ke Menu Utama":
-        await this.handleMenuToMain(bot, telegramId, msg);
+        await this.handleMenuToMain(bot, telegramId, msg, partnerId);
         break;
 
       default:
@@ -1451,12 +1618,16 @@ export class MessageHandler {
   private async handleBusinessFieldSelection(
     bot: TelegramBot,
     telegramId: number,
-    businessFieldCommand: string
+    businessFieldCommand: string,
+    partnerId: number
   ): Promise<void> {
-    const session = await this.sessionService.getActiveSession(telegramId);
+    const session = await this.sessionService.getActiveSession(
+      partnerId,
+      telegramId
+    );
 
     if (!session || session.current_step !== SessionStep.BUSINESS_FIELD) {
-      await this.handleUnknownMessage(bot, telegramId);
+      await this.handleUnknownMessage(bot, telegramId, partnerId);
       return;
     }
 
@@ -1481,6 +1652,7 @@ export class MessageHandler {
       telegram_id: telegramId,
       current_step: SessionStep.PIC_NAME,
       form_data: session.form_data,
+      partner_id: partnerId,
     });
 
     await bot.sendMessage(
@@ -1545,11 +1717,15 @@ export class MessageHandler {
   private async handleProvinceSelection(
     bot: TelegramBot,
     telegramId: number,
-    provinceCode: string
+    provinceCode: string,
+    partnerId: number
   ): Promise<void> {
-    const session = await this.sessionService.getActiveSession(telegramId);
+    const session = await this.sessionService.getActiveSession(
+      partnerId,
+      telegramId
+    );
     if (!session || session.current_step !== SessionStep.PROVINCE_SELECTION) {
-      await this.handleUnknownMessage(bot, telegramId);
+      await this.handleUnknownMessage(bot, telegramId, partnerId);
       return;
     }
 
@@ -1572,6 +1748,7 @@ export class MessageHandler {
       telegram_id: telegramId,
       current_step: SessionStep.CITY_SELECTION,
       form_data: session.form_data,
+      partner_id: partnerId,
     });
 
     await bot.sendMessage(
@@ -1592,11 +1769,15 @@ export class MessageHandler {
   private async handleCitySelection(
     bot: TelegramBot,
     telegramId: number,
-    cityCode: string
+    cityCode: string,
+    partnerId: number
   ): Promise<void> {
-    const session = await this.sessionService.getActiveSession(telegramId);
+    const session = await this.sessionService.getActiveSession(
+      partnerId,
+      telegramId
+    );
     if (!session || session.current_step !== SessionStep.CITY_SELECTION) {
-      await this.handleUnknownMessage(bot, telegramId);
+      await this.handleUnknownMessage(bot, telegramId, partnerId);
       return;
     }
 
@@ -1620,6 +1801,7 @@ export class MessageHandler {
       telegram_id: telegramId,
       current_step: SessionStep.AGENT_ADDRESS,
       form_data: session.form_data,
+      partner_id: partnerId,
     });
 
     await bot.sendMessage(
@@ -1636,7 +1818,8 @@ export class MessageHandler {
     bot: TelegramBot,
     telegramId: number,
     text: string,
-    session: any
+    session: any,
+    partnerId: number
   ): Promise<void> {
     if (!text.startsWith("/")) {
       const provinceMessage =
@@ -1645,14 +1828,20 @@ export class MessageHandler {
       return;
     }
 
-    await this.handleProvinceSelection(bot, telegramId, text.substring(1));
+    await this.handleProvinceSelection(
+      bot,
+      telegramId,
+      text.substring(1),
+      partnerId
+    );
   }
 
   private async handleCityInput(
     bot: TelegramBot,
     telegramId: number,
     text: string,
-    session: any
+    session: any,
+    parnerId: number
   ): Promise<void> {
     if (!text.startsWith("/")) {
       const cityMessage = await this.messages.generateCitySelectionMessage(
@@ -1662,6 +1851,11 @@ export class MessageHandler {
       return;
     }
 
-    await this.handleCitySelection(bot, telegramId, text.substring(1));
+    await this.handleCitySelection(
+      bot,
+      telegramId,
+      text.substring(1),
+      parnerId
+    );
   }
 }

@@ -1,6 +1,6 @@
 // src/api/controllers/kycController.ts
 import {Request, Response} from "express";
-import {ApiResponse} from "../middleware/authMiddleware";
+import {ApiResponse, AuthRequest} from "../middleware/authMiddleware";
 import {SessionService} from "../../services/SessionServices";
 import {PDFService} from "../../services/PdfService";
 import {Logger} from "../../config/logger";
@@ -21,11 +21,14 @@ export class KYCController {
   private logger = Logger.getInstance();
 
   public getList = async (
-    req: Request,
+    req: AuthRequest,
     res: Response<ApiResponse>
   ): Promise<void> => {
     try {
-      const applications = await this.sessionService.getAllKYCApplications();
+      const partnerId = req.partnerId!;
+      const applications = await this.sessionService.getAllKYCApplications(
+        partnerId
+      );
 
       res.json({
         success: true,
@@ -42,14 +45,16 @@ export class KYCController {
 
   // 1. Export PDF hanya untuk yang sudah confirmed
   public exportPdf = async (
-    req: Request,
+    req: AuthRequest,
     res: Response<ApiResponse>
   ): Promise<void> => {
     try {
       const {id} = req.params;
+      const partnerId = req.partnerId!;
 
       const application = await this.sessionService.getKYCApplicationById(
-        parseInt(id)
+        parseInt(id),
+        partnerId
       );
       if (!application) {
         res.status(404).json({
@@ -67,25 +72,11 @@ export class KYCController {
         return;
       }
 
-      // // Jika sudah ada PDF, return existing URL
-      // if (application.pdf_url) {
-      //   res.json({
-      //     success: true,
-      //     message: "PDF already exists",
-      //     data: {
-      //       pdf_url: application.pdf_url,
-      //       status: application.status,
-      //     },
-      //   });
-      //   return;
-      // }
-
       const photos = await this.sessionService.getApplicationPhotos(
         parseInt(id)
       );
       const pdfUrl = await this.pdfService.generateKYCPDF(application, photos);
 
-      // Update PDF URL tanpa mengubah status
       await this.sessionService.updateApplicationPdfUrl(parseInt(id), pdfUrl);
 
       res.json({
@@ -640,12 +631,13 @@ export class KYCController {
     }
   };
   public stampWithEmeterai = async (
-    req: Request,
+    req: AuthRequest,
     res: Response<ApiResponse>
   ): Promise<void> => {
     try {
       const {id} = req.params;
       const {stamped_by} = req.body;
+      const partnerId = req.partnerId!;
 
       if (!stamped_by) {
         res
@@ -688,7 +680,11 @@ export class KYCController {
       }
 
       const emeteraiService = new EmeteraiService();
-      await emeteraiService.processStamping(parseInt(id), stamped_by);
+      await emeteraiService.processStamping(
+        parseInt(id),
+        stamped_by,
+        partnerId
+      );
 
       res.json({
         success: true,
@@ -774,11 +770,12 @@ export class KYCController {
   };
 
   public bulkStampWithEmeterai = async (
-    req: Request,
+    req: AuthRequest,
     res: Response<ApiResponse>
   ): Promise<void> => {
     try {
       const {applications} = req.body;
+      const partnerId = req.partnerId!;
 
       if (!Array.isArray(applications) || applications.length === 0) {
         res.status(400).json({
@@ -827,7 +824,7 @@ export class KYCController {
           }
 
           // Process stamping in background (non-blocking)
-          this.processStampingAsync(id, stamped_by);
+          this.processStampingAsync(id, stamped_by, partnerId);
 
           results.push({
             id,
@@ -860,11 +857,16 @@ export class KYCController {
   // Helper method untuk async processing
   private async processStampingAsync(
     applicationId: number,
-    stampedBy: string
+    stampedBy: string,
+    partnerId: number
   ): Promise<void> {
     try {
       const emeteraiService = new EmeteraiService();
-      await emeteraiService.processStamping(applicationId, stampedBy);
+      await emeteraiService.processStamping(
+        applicationId,
+        stampedBy,
+        partnerId
+      );
 
       this.logger.info("Background stamping completed", {applicationId});
     } catch (error) {
@@ -1091,12 +1093,13 @@ Anda dapat mendaftar ulang dengan data yang benar menggunakan /daftar`;
   }
 
   public updateProcessedStatus = async (
-    req: Request,
+    req: AuthRequest,
     res: Response<ApiResponse>
   ): Promise<void> => {
     try {
       const {id} = req.params;
       const {is_processed} = req.body;
+      const partnerId = req.partnerId!;
 
       if (typeof is_processed !== "boolean") {
         res.status(400).json({
@@ -1119,7 +1122,8 @@ Anda dapat mendaftar ulang dengan data yang benar menggunakan /daftar`;
 
       await this.sessionService.updateProcessedStatus(
         parseInt(id),
-        is_processed
+        is_processed,
+        partnerId
       );
 
       res.json({

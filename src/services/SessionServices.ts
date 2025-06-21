@@ -1,3 +1,4 @@
+import {Pool} from "pg";
 import {Database} from "../config/database";
 import {Logger} from "../config/logger";
 import {
@@ -8,58 +9,88 @@ import {
   SessionStep,
   KYCListResponse,
 } from "../types";
+import {CacheFactory} from "./cache/CacheFactory";
+import {CacheProvider} from "./cache/CacheProvider";
 
 export class SessionService {
-  public db = Database.getInstance();
+  public db: Pool;
+  private cache: CacheProvider;
   private logger = Logger.getInstance();
 
-  public async getActiveSession(
-    telegramId: number
-  ): Promise<UserSession | null> {
-    try {
-      const result = await this.db.query(
-        "SELECT * FROM active_sessions WHERE telegram_id = $1",
-        [telegramId]
-      );
-
-      if (result.rows.length === 0) return null;
-
-      const row = result.rows[0];
-      return {
-        ...row,
-        form_data: row.form_data || {},
-      };
-    } catch (error) {
-      this.logger.error("Error getting active session:", {telegramId, error});
-      throw error;
-    }
+  constructor() {
+    this.db = Database.getInstance().getPool();
+    this.cache = CacheFactory.create();
   }
 
-  public async createOrUpdateSession(
-    session: Partial<UserSession>
-  ): Promise<UserSession> {
-    try {
-      const existingSession = await this.getActiveSession(session.telegram_id!);
+  async getActiveSession(
+    partnerId: number,
+    telegramId: number
+  ): Promise<UserSession | null> {
+    const cacheKey = `session:${partnerId}:${telegramId}`;
+    const cached = await this.cache.get<UserSession>(cacheKey);
 
-      if (existingSession) {
-        const result = await this.db.query(
+    if (cached) return cached;
+
+    const result = await this.db.query(
+      `SELECT * FROM active_sessions 
+      WHERE partner_id = $1 AND telegram_id = $2`,
+      [partnerId, telegramId]
+    );
+
+    if (result.rows.length === 0) return null;
+
+    const session = {
+      ...result.rows[0],
+      form_data: result.rows[0].form_data || {},
+    };
+
+    await this.cache.set(cacheKey, session, 300);
+    return session;
+  }
+
+  async createOrUpdateSession(session: UserSession): Promise<UserSession> {
+    const lockKey = `lock:session:${session.partner_id}:${session.telegram_id}`;
+    const acquired = await this.cache.acquireLock(lockKey, 30);
+
+    if (!acquired) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      return this.createOrUpdateSession(session);
+    }
+
+    const client = await this.db.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const existing = await client.query(
+        `SELECT id FROM active_sessions 
+        WHERE partner_id = $1 AND telegram_id = $2 
+        FOR UPDATE`,
+        [session.partner_id, session.telegram_id]
+      );
+
+      let result;
+      if (existing.rows.length > 0) {
+        result = await client.query(
           `UPDATE active_sessions 
-                     SET current_step = $1, form_data = $2, updated_at = CURRENT_TIMESTAMP
-                     WHERE telegram_id = $3 
-                     RETURNING *`,
+          SET current_step = $1, form_data = $2, updated_at = CURRENT_TIMESTAMP
+          WHERE partner_id = $3 AND telegram_id = $4
+          RETURNING *`,
           [
             session.current_step,
             JSON.stringify(session.form_data),
+            session.partner_id,
             session.telegram_id,
           ]
         );
-        return {...result.rows[0], form_data: result.rows[0].form_data || {}};
       } else {
-        const result = await this.db.query(
-          `INSERT INTO active_sessions (telegram_id, username, first_name, last_name, current_step, form_data)
-                     VALUES ($1, $2, $3, $4, $5, $6) 
-                     RETURNING *`,
+        result = await client.query(
+          `INSERT INTO active_sessions 
+          (partner_id, telegram_id, username, first_name, last_name, current_step, form_data)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          RETURNING *`,
           [
+            session.partner_id,
             session.telegram_id,
             session.username,
             session.first_name,
@@ -68,155 +99,196 @@ export class SessionService {
             JSON.stringify(session.form_data || {}),
           ]
         );
-        return {...result.rows[0], form_data: result.rows[0].form_data || {}};
       }
+
+      await client.query("COMMIT");
+
+      const updatedSession = {
+        ...result.rows[0],
+        form_data: result.rows[0].form_data || {},
+      };
+
+      await this.cache.set(
+        `session:${session.partner_id}:${session.telegram_id}`,
+        updatedSession,
+        300
+      );
+
+      return updatedSession;
     } catch (error) {
-      this.logger.error("Error creating/updating session:", {session, error});
+      await client.query("ROLLBACK");
       throw error;
+    } finally {
+      client.release();
+      await this.cache.releaseLock(lockKey);
     }
   }
 
-  public async isIdCardRegistered(idCardNumber: string): Promise<boolean> {
-    try {
-      const activeResult = await this.db.query(
-        "SELECT 1 FROM active_sessions WHERE form_data->>'id_card_number' = $1",
-        [idCardNumber]
-      );
+  async isIdCardRegistered(
+    partnerId: number,
+    idCardNumber: string
+  ): Promise<boolean> {
+    const cacheKey = `idcard:${partnerId}:${idCardNumber}`;
+    const cached = await this.cache.get<boolean>(cacheKey);
 
-      const registeredResult = await this.db.query(
-        "SELECT 1 FROM kyc_applications WHERE id_card_number = $1",
-        [idCardNumber]
-      );
+    if (cached !== null) return cached;
 
-      return activeResult.rows.length > 0 || registeredResult.rows.length > 0;
-    } catch (error) {
-      this.logger.error("Error checking ID card registration:", {
-        idCardNumber,
-        error,
-      });
-      throw error;
-    }
+    const [activeResult, registeredResult] = await Promise.all([
+      this.db.query(
+        `SELECT 1 FROM active_sessions 
+        WHERE partner_id = $1 AND form_data->>'id_card_number' = $2`,
+        [partnerId, idCardNumber]
+      ),
+      this.db.query(
+        `SELECT 1 FROM kyc_applications 
+        WHERE partner_id = $1 AND id_card_number = $2`,
+        [partnerId, idCardNumber]
+      ),
+    ]);
+
+    const exists =
+      activeResult.rows.length > 0 || registeredResult.rows.length > 0;
+    await this.cache.set(cacheKey, exists, 3600);
+
+    return exists;
   }
 
-  public async completeRegistration(session: UserSession): Promise<void> {
-    const client = this.db.getPool();
-    const dbClient = await client.connect();
+  async completeRegistration(session: UserSession): Promise<void> {
+    const client = await this.db.connect();
 
     try {
-      await dbClient.query("BEGIN");
+      await client.query("BEGIN");
 
-      const applicationResult = await dbClient.query(
-        `INSERT INTO kyc_applications 
-          (telegram_id, username, first_name, last_name, agent_name, province_code, province_name, 
-            city_code, city_name, agent_address, owner_name, business_field, pic_name, pic_phone, 
-            id_card_number, tax_number, account_holder_name, bank_name, account_number, 
-            signature_initial, status)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, 'draft')
-          RETURNING id`,
+      const applicationResult = await client.query(
+        `INSERT INTO kyc_applications (
+         partner_id, telegram_id, username, first_name, last_name,
+         agent_name, agent_address, owner_name, business_field,
+         pic_name, pic_phone, id_card_number, tax_number,
+         account_holder_name, bank_name, account_number,
+         signature_initial, province_code, province_name,
+         city_code, city_name, status
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+       RETURNING id`,
         [
+          session.partner_id,
           session.telegram_id,
           session.username,
           session.first_name,
           session.last_name,
           session.form_data.agent_name,
-          session.form_data.province_code,
-          session.form_data.province_name,
-          session.form_data.city_code,
-          session.form_data.city_name,
           session.form_data.agent_address,
           session.form_data.owner_name,
           session.form_data.business_field,
           session.form_data.pic_name,
           session.form_data.pic_phone,
           session.form_data.id_card_number,
-          session.form_data.tax_number || null,
+          session.form_data.tax_number,
           session.form_data.account_holder_name,
           session.form_data.bank_name,
           session.form_data.account_number,
           session.form_data.signature_initial,
+          session.form_data.province_code,
+          session.form_data.province_name,
+          session.form_data.city_code,
+          session.form_data.city_name,
+          "draft",
         ]
       );
 
       const applicationId = applicationResult.rows[0].id;
-      const photos = [];
 
-      if (session.form_data.location_photos) {
-        for (const photoUrl of session.form_data.location_photos) {
-          photos.push({
-            application_id: applicationId,
-            photo_type: "location_photos",
-            file_path: photoUrl,
-            file_name: photoUrl.split("/").pop() || "",
-          });
-        }
-      }
-
-      if (session.form_data.bank_book_photo) {
-        photos.push({
-          application_id: applicationId,
-          photo_type: "bank_book",
-          file_path: session.form_data.bank_book_photo,
-          file_name: session.form_data.bank_book_photo.split("/").pop() || "",
-        });
-      }
-
-      if (session.form_data.id_card_photo) {
-        photos.push({
-          application_id: applicationId,
-          photo_type: "id_card",
-          file_path: session.form_data.id_card_photo,
-          file_name: session.form_data.id_card_photo.split("/").pop() || "",
-        });
-      }
+      const photos = this.preparePhotos(applicationId, session);
 
       for (const photo of photos) {
-        await dbClient.query(
-          `INSERT INTO kyc_photos (application_id, photo_type, file_path, file_name)
-                     VALUES ($1, $2, $3, $4)`,
+        await client.query(
+          `INSERT INTO kyc_photos 
+          (partner_id, application_id, photo_type, file_url, file_name)
+          VALUES ($1, $2, $3, $4, $5)`,
           [
+            session.partner_id,
             photo.application_id,
             photo.photo_type,
-            photo.file_path,
+            photo.file_url,
             photo.file_name,
           ]
         );
       }
 
-      await dbClient.query(
-        "DELETE FROM active_sessions WHERE telegram_id = $1",
-        [session.telegram_id]
+      await client.query(
+        "DELETE FROM active_sessions WHERE partner_id = $1 AND telegram_id = $2",
+        [session.partner_id, session.telegram_id]
       );
 
-      await dbClient.query("COMMIT");
+      await client.query("COMMIT");
 
-      this.logger.info("KYC registration completed successfully:", {
-        telegramId: session.telegram_id,
-        applicationId,
-        idCardNumber: session.form_data.id_card_number,
-      });
+      await this.cache.delete(
+        `session:${session.partner_id}:${session.telegram_id}`
+      );
+      await this.cache.delete(
+        `idcard:${session.partner_id}:${session.form_data.id_card_number}`
+      );
     } catch (error) {
-      await dbClient.query("ROLLBACK");
-      this.logger.error("Error completing registration:", {session, error});
+      await client.query("ROLLBACK");
       throw error;
     } finally {
-      dbClient.release();
+      client.release();
     }
   }
 
-  public async resetSession(telegramId: number): Promise<void> {
+  private preparePhotos(applicationId: number, session: UserSession): any[] {
+    const photos = [];
+
+    if (session.form_data.location_photos?.length) {
+      for (const photo of session.form_data.location_photos) {
+        photos.push({
+          application_id: applicationId,
+          photo_type: "location_photos",
+          file_url: photo,
+          file_name: photo.split("/").pop() || "",
+        });
+      }
+    }
+
+    if (session.form_data.bank_book_photo) {
+      photos.push({
+        application_id: applicationId,
+        photo_type: "bank_book",
+        file_url: session.form_data.bank_book_photo,
+        file_name: session.form_data.bank_book_photo.split("/").pop() || "",
+      });
+    }
+
+    if (session.form_data.id_card_photo) {
+      photos.push({
+        application_id: applicationId,
+        photo_type: "id_card",
+        file_url: session.form_data.id_card_photo,
+        file_name: session.form_data.id_card_photo.split("/").pop() || "",
+      });
+    }
+
+    return photos;
+  }
+
+  async resetSession(partnerId: number, telegramId: number): Promise<void> {
+    const lockKey = `lock:session:${partnerId}:${telegramId}`;
+    const acquired = await this.cache.acquireLock(lockKey, 10);
+
+    if (!acquired) return;
+
     try {
       await this.db.query(
-        "DELETE FROM active_sessions WHERE telegram_id = $1",
-        [telegramId]
+        "DELETE FROM active_sessions WHERE partner_id = $1 AND telegram_id = $2",
+        [partnerId, telegramId]
       );
-      this.logger.info("Session reset:", {telegramId});
-    } catch (error) {
-      this.logger.error("Error resetting session:", {telegramId, error});
-      throw error;
+
+      await this.cache.delete(`session:${partnerId}:${telegramId}`);
+    } finally {
+      await this.cache.releaseLock(lockKey);
     }
   }
 
-  public async getNextStep(formData: FormData): Promise<SessionStep> {
+  async getNextStep(formData: FormData): Promise<SessionStep> {
     if (!formData.agent_name) return SessionStep.AGENT_NAME;
     if (!formData.province_code) return SessionStep.PROVINCE_SELECTION;
     if (!formData.city_code) return SessionStep.CITY_SELECTION;
@@ -240,60 +312,49 @@ export class SessionService {
     return SessionStep.CONFIRMATION;
   }
 
-  public async getApplicationPhotos(
-    applicationId: number
+  async getApplicationPhotos(
+    applicationId: number,
+    partnerId?: number
   ): Promise<KYCPhoto[]> {
-    try {
-      const result = await this.db.query(
-        "SELECT * FROM kyc_photos WHERE application_id = $1 ORDER BY photo_type, uploaded_at",
-        [applicationId]
-      );
+    const query = partnerId
+      ? `SELECT p.* FROM kyc_photos p 
+         JOIN kyc_applications a ON p.application_id = a.id 
+         WHERE p.application_id = $1 AND a.partner_id = $2 
+         ORDER BY p.photo_type, p.uploaded_at`
+      : `SELECT * FROM kyc_photos 
+         WHERE application_id = $1 
+         ORDER BY photo_type, uploaded_at`;
 
-      return result.rows;
-    } catch (error) {
-      this.logger.error("Error getting application photos:", {
-        applicationId,
-        error,
-      });
-      throw error;
-    }
+    const params = partnerId ? [applicationId, partnerId] : [applicationId];
+    const result = await this.db.query(query, params);
+
+    return result.rows;
   }
 
-  public async getAllKYCApplications(): Promise<KYCListResponse[]> {
-    try {
-      const result = await this.db.query(`
-    SELECT *, is_processed, province_name, city_name
-    FROM kyc_applications 
-    ORDER BY created_at DESC
-  `);
+  async getAllKYCApplications(partnerId: number): Promise<KYCListResponse[]> {
+    const result = await this.db.query(
+      `SELECT *, is_processed, province_name, city_name
+       FROM kyc_applications 
+       WHERE partner_id = $1
+       ORDER BY created_at DESC`,
+      [partnerId]
+    );
 
-      return result.rows as KYCListResponse[];
-    } catch (error) {
-      this.logger.error("Error getting all KYC applications:", error);
-      throw error;
-    }
+    return result.rows as KYCListResponse[];
   }
 
-  public async getKYCApplicationById(
-    id: number
+  async getKYCApplicationById(
+    id: number,
+    partnerId?: number
   ): Promise<KYCApplication | null> {
-    try {
-      const result = await this.db.query(
-        `
-      SELECT * FROM kyc_applications WHERE id = $1
-    `,
-        [id]
-      );
+    const query = partnerId
+      ? `SELECT * FROM kyc_applications WHERE id = $1 AND partner_id = $2`
+      : `SELECT * FROM kyc_applications WHERE id = $1`;
 
-      if (!result.rows || result.rows.length === 0) {
-        return null;
-      }
+    const params = partnerId ? [id, partnerId] : [id];
+    const result = await this.db.query(query, params);
 
-      return result.rows[0] as KYCApplication;
-    } catch (error) {
-      this.logger.error("Error getting KYC application by ID:", error);
-      throw error;
-    }
+    return result.rows[0] || null;
   }
 
   public async updateApplicationStatus(
@@ -353,63 +414,54 @@ export class SessionService {
     }
   }
 
-  public async getKYCApplication(
+  async getKYCApplication(
+    partnerId: number,
     telegramId: number
   ): Promise<KYCApplication | null> {
-    try {
-      const result = await this.db.query(
-        "SELECT * FROM kyc_applications WHERE telegram_id = $1 ORDER BY created_at DESC LIMIT 1",
-        [telegramId]
-      );
+    const result = await this.db.query(
+      `SELECT * FROM kyc_applications 
+       WHERE partner_id = $1 AND telegram_id = $2 
+       ORDER BY created_at DESC LIMIT 1`,
+      [partnerId, telegramId]
+    );
 
-      return result.rows.length > 0 ? result.rows[0] : null;
-    } catch (error) {
-      this.logger.error("Error getting KYC application:", {telegramId, error});
-      throw error;
-    }
+    return result.rows[0] || null;
   }
 
-  public async canUserRegister(
+  async canUserRegister(
+    partnerId: number,
     telegramId: number
-  ): Promise<{canRegister: boolean; reason?: string; remark?: string}> {
-    try {
-      const result = await this.db.query(
-        "SELECT status, remark FROM kyc_applications WHERE telegram_id = $1 ORDER BY created_at DESC LIMIT 1",
-        [telegramId]
-      );
+  ): Promise<{
+    canRegister: boolean;
+    reason?: string;
+    remark?: string;
+  }> {
+    const result = await this.db.query(
+      `SELECT status, remark FROM kyc_applications 
+       WHERE partner_id = $1 AND telegram_id = $2 
+       ORDER BY created_at DESC LIMIT 1`,
+      [partnerId, telegramId]
+    );
 
-      if (result.rows.length === 0) {
-        return {canRegister: true};
-      }
-
-      const application = result.rows[0];
-
-      if (application.status === "rejected") {
-        return {
-          canRegister: true,
-          reason: "previous_rejected",
-          remark: application.remark,
-        };
-      }
-
-      if (
-        application.status === "confirmed" ||
-        application.status === "draft"
-      ) {
-        return {
-          canRegister: false,
-          reason: `already_${application.status}`,
-        };
-      }
-
+    if (result.rows.length === 0) {
       return {canRegister: true};
-    } catch (error) {
-      this.logger.error("Error checking user registration eligibility:", {
-        telegramId,
-        error,
-      });
-      throw error;
     }
+
+    const application = result.rows[0];
+
+    if (application.status === "confirmed") {
+      return {canRegister: false, reason: "already_confirmed"};
+    } else if (application.status === "draft") {
+      return {canRegister: false, reason: "already_draft"};
+    } else if (application.status === "rejected") {
+      return {
+        canRegister: true,
+        reason: "previous_rejected",
+        remark: application.remark,
+      };
+    }
+
+    return {canRegister: true};
   }
 
   public async updateApplicationPdfUrl(
@@ -519,67 +571,39 @@ export class SessionService {
     }
   }
 
-  public async updateEmeteraiConsent(
-    id: number,
+  async updateEmeteraiConsent(
+    applicationId: number,
     consent: boolean
   ): Promise<void> {
-    try {
-      await this.db.query(
-        "UPDATE kyc_applications SET user_emeterai_consent = $1 WHERE id = $2",
-        [consent, id]
-      );
-    } catch (error) {
-      this.logger.error("Error updating e-meterai consent:", {
-        id,
-        consent,
-        error,
-      });
-      throw error;
-    }
+    await this.db.query(
+      "UPDATE kyc_applications SET user_emeterai_consent = $1 WHERE id = $2",
+      [consent, applicationId]
+    );
   }
 
-  public async getKYCApplicationByTelegramId(
+  async getKYCApplicationByTelegramId(
+    partnerId: number,
     telegramId: number
   ): Promise<KYCApplication | null> {
-    try {
-      const result = await this.db.query(
-        "SELECT * FROM kyc_applications WHERE telegram_id = $1 ORDER BY created_at DESC LIMIT 1",
-        [telegramId]
-      );
+    const result = await this.db.query(
+      `SELECT * FROM kyc_applications 
+       WHERE partner_id = $1 AND telegram_id = $2 
+       AND status = 'confirmed' 
+       ORDER BY created_at DESC LIMIT 1`,
+      [partnerId, telegramId]
+    );
 
-      return result.rows.length > 0 ? result.rows[0] : null;
-    } catch (error) {
-      this.logger.error("Error getting KYC application by telegram ID:", {
-        telegramId,
-        error,
-      });
-      throw error;
-    }
+    return result.rows[0] || null;
   }
 
-  public async updateProcessedStatus(
+  async updateProcessedStatus(
     id: number,
-    isProcessed: boolean
+    isProcessed: boolean,
+    partnerId: number
   ): Promise<void> {
-    try {
-      await this.db.query(
-        `UPDATE kyc_applications 
-       SET is_processed = $1, updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $2`,
-        [isProcessed, id]
-      );
-
-      this.logger.info("Application processed status updated:", {
-        id,
-        isProcessed,
-      });
-    } catch (error) {
-      this.logger.error("Error updating processed status:", {
-        id,
-        isProcessed,
-        error,
-      });
-      throw error;
-    }
+    await this.db.query(
+      "UPDATE kyc_applications SET is_processed = $1 WHERE id = $2 AND partner_id = $3",
+      [isProcessed, id, partnerId]
+    );
   }
 }

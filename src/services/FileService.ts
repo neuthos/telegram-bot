@@ -1,63 +1,91 @@
+// src/services/FileService.ts
 import TelegramBot from "node-telegram-bot-api";
+import axios from "axios";
+import FormData from "form-data";
 import {Logger} from "../config/logger";
 import {CDNService} from "./CDNService";
+import path from "path";
 
 export class FileService {
+  private cdnService: CDNService;
   private logger = Logger.getInstance();
-  private cdnService = new CDNService();
 
-  public async downloadAndUploadPhoto(
+  constructor() {
+    this.cdnService = new CDNService();
+  }
+
+  async downloadAndUploadPhoto(
     bot: TelegramBot,
     fileId: string,
-    telegramId: number,
+    folderPath: string,
     photoType: string
-  ): Promise<{fileUrl: string; fileName: string; fileSize: number}> {
+  ): Promise<{url: string; fileName: string}> {
     try {
       const file = await bot.getFile(fileId);
 
-      if (!file.file_path) {
-        throw new Error("File path not available");
+      // Get token from bot instance
+      const botInfo = bot as any;
+      const token = botInfo.token || botInfo._token || botInfo.options?.token;
+
+      if (!token) {
+        throw new Error("Bot token not accessible");
       }
 
-      const extension = file.file_path.split(".").pop() || "jpg";
-      const fileName = `${photoType}_${telegramId}_${Date.now()}.${extension}`;
+      const fileUrl = `https://api.telegram.org/file/bot${token}/${file.file_path}`;
 
-      const fileStream = bot.getFileStream(fileId);
-      const chunks: Buffer[] = [];
+      const response = await axios.get(fileUrl, {
+        responseType: "arraybuffer",
+      });
 
-      for await (const chunk of fileStream) {
-        chunks.push(chunk);
-      }
+      const buffer = Buffer.from(response.data);
+      const extension = path.extname(file.file_path || ".jpg");
+      const fileName = `${photoType}_${Date.now()}${extension}`;
 
-      const fileBuffer = Buffer.concat(chunks);
-      const mimeType = `image/${extension}`;
-
-      const fileUrl = await this.cdnService.uploadFile(
-        fileBuffer,
+      const uploadedUrl = await this.cdnService.uploadFile(
+        buffer,
         fileName,
-        mimeType
+        `image/${extension.substring(1)}`,
+        folderPath
       );
 
-      this.logger.info("Photo uploaded successfully:", {
-        telegramId,
-        photoType,
+      this.logger.info("Photo uploaded successfully", {
+        fileId,
         fileName,
-        fileUrl,
-        fileSize: fileBuffer.length,
+        uploadedUrl,
+        folderPath,
       });
 
       return {
-        fileUrl,
+        url: uploadedUrl,
         fileName,
-        fileSize: fileBuffer.length,
       };
     } catch (error) {
-      this.logger.error("Error uploading photo:", {
-        telegramId,
-        photoType,
-        fileId,
-        error,
+      this.logger.error("Error downloading/uploading photo:", error);
+      throw error;
+    }
+  }
+
+  async downloadFile(bot: TelegramBot, fileId: string): Promise<Buffer> {
+    try {
+      const file = await bot.getFile(fileId);
+
+      // Get token from bot instance
+      const botInfo = bot as any;
+      const token = botInfo.token || botInfo._token || botInfo.options?.token;
+
+      if (!token) {
+        throw new Error("Bot token not accessible");
+      }
+
+      const fileUrl = `https://api.telegram.org/file/bot${token}/${file.file_path}`;
+
+      const response = await axios.get(fileUrl, {
+        responseType: "arraybuffer",
       });
+
+      return Buffer.from(response.data);
+    } catch (error) {
+      this.logger.error("Error downloading file:", error);
       throw error;
     }
   }

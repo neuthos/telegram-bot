@@ -952,3 +952,105 @@
 {"id":1,"level":"info","message":"Application PDF URL updated:","pdfUrl":"http://official.aigent.id/api/v1/files/3febc1d7-cb85-4285-8048-1ee0b0df9d97.pdf","timestamp":"2025-06-09T12:52:16.896Z"}
 {"fileName":"kyc_1_stamped_1749473664849.pdf","fileUrl":"http://official.aigent.id/api/v1/files/711ade87-bea3-4e34-ae1d-1425d863c070.pdf","level":"info","message":"File uploaded to CDN:","timestamp":"2025-06-09T12:54:25.442Z"}
 {"level":"info","message":"Shutting down gracefully","timestamp":"2025-06-09T13:09:44.504Z"}
+{"level":"info","message":"KYC Bot started successfully","timestamp":"2025-06-12T15:53:14.137Z"}
+{"level":"info","message":"API Server running on port 3000","timestamp":"2025-06-12T15:53:14.140Z"}
+{"level":"info","message":"KYC Bot started successfully","timestamp":"2025-06-12T15:53:39.300Z"}
+{"level":"info","message":"API Server running on port 3000","timestamp":"2025-06-12T15:53:39.303Z"}
+{"level":"info","message":"KYC Bot started successfully","timestamp":"2025-06-12T15:53:45.056Z"}
+{"level":"info","message":"API Server running on port 3000","timestamp":"2025-06-12T15:53:45.059Z"}
+{"level":"info","message":"KYC Bot started successfully","timestamp":"2025-06-12T15:53:48.499Z"}
+{"level":"info","message":"API Server running on port 3000","timestamp":"2025-06-12T15:53:48.502Z"}
+{"level":"info","message":"KYC Bot started successfully","timestamp":"2025-06-12T15:54:04.927Z"}
+{"level":"info","message":"API Server running on port 3000","timestamp":"2025-06-12T15:54:04.930Z"}
+{"level":"info","message":"KYC Bot started successfully","timestamp":"2025-06-12T15:54:12.781Z"}
+{"level":"info","message":"API Server running on port 3000","timestamp":"2025-06-12T15:54:12.785Z"}
+{"level":"info","message":"Shutting down gracefully","timestamp":"2025-06-12T15:54:20.730Z"}
+{"level":"info","message":"KYC Bot started successfully","timestamp":"2025-06-12T15:54:30.099Z"}
+{"level":"info","message":"API Server running on port 3000","timestamp":"2025-06-12T15:54:30.102Z"}
+{"level":"info","message":"KYC Bot started successfully","timestamp":"2025-06-12T15:55:25.612Z"}
+{"level":"info","message":"API Server running on port 3000","timestamp":"2025-06-12T15:55:25.616Z"}
+{"level":"info","message":"KYC Bot started successfully","timestamp":"2025-06-12T15:56:05.425Z"}
+{"level":"info","message":"API Server running on port 3000","timestamp":"2025-06-12T15:56:05.428Z"}
+{"level":"info","message":"KYC Bot started successfully","timestamp":"2025-06-12T15:56:17.547Z"}
+{"level":"info","message":"API Server running on port 3000","timestamp":"2025-06-12T15:56:17.550Z"}
+{"level":"info","message":"KYC Bot started successfully","timestamp":"2025-06-12T15:56:20.984Z"}
+{"level":"info","message":"API Server running on port 3000","timestamp":"2025-06-12T15:56:20.987Z"}
+{"id":1,"isProcessed":true,"level":"info","message":"Application processed status updated:","timestamp":"2025-06-12T15:57:02.117Z"}
+{"level":"info","message":"KYC Bot started successfully","timestamp":"2025-06-12T15:57:42.926Z"}
+{"level":"info","message":"API Server running on port 3000","timestamp":"2025-06-12T15:57:42.930Z"}
+{"level":"info","message":"KYC Bot started successfully","timestamp":"2025-06-12T15:57:45.028Z"}
+{"level":"info","message":"API Server running on port 3000","timestamp":"2025-06-12T15:57:45.034Z"}
+{"level":"info","message":"KYC Bot started successfully","timestamp":"2025-06-12T15:58:04.136Z"}
+{"level":"info","message":"API Server running on port 3000","timestamp":"2025-06-12T15:58:04.140Z"}
+{"level":"info","message":"KYC Bot started successfully","timestamp":"2025-06-18T06:20:37.402Z"}
+{"level":"info","message":"API Server running on port 3000","timestamp":"2025-06-18T06:20:37.405Z"}
+{"level":"info","message":"KYC Bot started successfully","timestamp":"2025-06-18T06:22:45.950Z"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1561,"telegramId":1283954457,"text":"yoo","timestamp":"2025-06-18T06:23:41.002Z","username":"neuthos"}
+{"error":{"address":"::1","code":"ECONNREFUSED","errno":-61,"port":5432,"syscall":"connect"},"level":"error","message":"Database query error:","params":[1283954457],"query":"SELECT status, remark FROM kyc_applications WHERE telegram_id = $1 ORDER BY created_at DESC LIMIT 1","timestamp":"2025-06-18T06:23:41.008Z"}
+{"error":{"address":"::1","code":"ECONNREFUSED","errno":-61,"port":5432,"syscall":"connect"},"level":"error","message":"Error checking user registration eligibility:","telegramId":1283954457,"timestamp":"2025-06-18T06:23:41.008Z"}
+{"error":{"address":"::1","code":"ECONNREFUSED","errno":-61,"port":5432,"syscall":"connect"},"level":"error","message":"Error handling message:","telegramId":1283954457,"text":"yoo","timestamp":"2025-06-18T06:23:41.008Z"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1563,"telegramId":1283954457,"text":"yoo","timestamp":"2025-06-18T06:23:54.031Z","username":"neuthos"}
+{"error":{"address":"::1","code":"ECONNREFUSED","errno":-61,"port":5432,"syscall":"connect"},"level":"error","message":"Database query error:","params":[1283954457],"query":"SELECT status, remark FROM kyc_applications WHERE telegram_id = $1 ORDER BY created_at DESC LIMIT 1","timestamp":"2025-06-18T06:23:54.033Z"}
+{"error":{"address":"::1","code":"ECONNREFUSED","errno":-61,"port":5432,"syscall":"connect"},"level":"error","message":"Error checking user registration eligibility:","telegramId":1283954457,"timestamp":"2025-06-18T06:23:54.034Z"}
+{"error":{"address":"::1","code":"ECONNREFUSED","errno":-61,"port":5432,"syscall":"connect"},"level":"error","message":"Error handling message:","telegramId":1283954457,"text":"yoo","timestamp":"2025-06-18T06:23:54.034Z"}
+{"level":"info","message":"KYC Bot started successfully","timestamp":"2025-06-18T06:37:33.799Z"}
+{"level":"info","message":"API Server running on port 3000","timestamp":"2025-06-18T06:37:33.801Z"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1565,"telegramId":1283954457,"text":"yo","timestamp":"2025-06-18T06:37:40.024Z","username":"neuthos"}
+{"level":"info","message":"Shutting down gracefully","timestamp":"2025-06-18T06:52:02.883Z"}
+{"level":"info","message":"API Server running on port 3000","timestamp":"2025-06-21T08:57:34.289Z"}
+{"level":"info","message":"Shutting down gracefully","timestamp":"2025-06-21T09:00:01.097Z"}
+{"level":"info","message":"BotManager shutdown complete","timestamp":"2025-06-21T09:00:01.109Z"}
+{"level":"info","message":"API Server running on port 3000","timestamp":"2025-06-21T09:00:04.313Z"}
+{"level":"info","message":"Bot initialized for partner Ekosistem Pasar Digital (ID: 1)","timestamp":"2025-06-21T09:00:04.413Z"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1567,"partnerId":1,"telegramId":1283954457,"text":"yoo","timestamp":"2025-06-21T09:00:05.689Z","username":"neuthos"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1568,"partnerId":1,"telegramId":1283954457,"text":"yoo","timestamp":"2025-06-21T09:00:07.689Z","username":"neuthos"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1571,"partnerId":1,"telegramId":1283954457,"text":"yoo","timestamp":"2025-06-21T09:00:12.212Z","username":"neuthos"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1573,"partnerId":1,"telegramId":1283954457,"text":"/menu","timestamp":"2025-06-21T09:00:17.143Z","username":"neuthos"}
+{"command":"/menu","level":"info","message":"Command received:","partnerId":1,"telegramId":1283954457,"timestamp":"2025-06-21T09:00:17.143Z"}
+{"level":"info","message":"Shutting down gracefully","timestamp":"2025-06-21T09:00:33.235Z"}
+{"level":"info","message":"BotManager shutdown complete","timestamp":"2025-06-21T09:00:47.658Z"}
+{"level":"info","message":"API Server running on port 3000","timestamp":"2025-06-21T09:00:54.542Z"}
+{"level":"info","message":"Bot initialized for partner Ekosistem Pasar Digital (ID: 1)","timestamp":"2025-06-21T09:00:54.612Z"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1575,"partnerId":1,"telegramId":1283954457,"text":"yooo","timestamp":"2025-06-21T09:01:02.571Z","username":"neuthos"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1577,"partnerId":1,"telegramId":1283954457,"text":"/daftar","timestamp":"2025-06-21T09:01:05.350Z","username":"neuthos"}
+{"command":"/daftar","level":"info","message":"Command received:","partnerId":1,"telegramId":1283954457,"timestamp":"2025-06-21T09:01:05.351Z"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1579,"partnerId":1,"telegramId":1283954457,"text":"/mulai","timestamp":"2025-06-21T09:01:07.317Z","username":"neuthos"}
+{"command":"/mulai","level":"info","message":"Command received:","partnerId":1,"telegramId":1283954457,"timestamp":"2025-06-21T09:01:07.317Z"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1581,"partnerId":1,"telegramId":1283954457,"text":"123123123","timestamp":"2025-06-21T09:01:18.104Z","username":"neuthos"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1584,"partnerId":1,"telegramId":1283954457,"text":"/7200","timestamp":"2025-06-21T09:01:23.667Z","username":"neuthos"}
+{"command":"/7200","level":"info","message":"Command received:","partnerId":1,"telegramId":1283954457,"timestamp":"2025-06-21T09:01:23.667Z"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1587,"partnerId":1,"telegramId":1283954457,"text":"/7204","timestamp":"2025-06-21T09:01:26.445Z","username":"neuthos"}
+{"command":"/7204","level":"info","message":"Command received:","partnerId":1,"telegramId":1283954457,"timestamp":"2025-06-21T09:01:26.446Z"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1589,"partnerId":1,"telegramId":1283954457,"text":"Jalan Jalan Dimana diamna","timestamp":"2025-06-21T09:01:33.652Z","username":"neuthos"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1591,"partnerId":1,"telegramId":1283954457,"text":"Galang Ardian","timestamp":"2025-06-21T09:01:39.137Z","username":"neuthos"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1594,"partnerId":1,"telegramId":1283954457,"text":"/Apotek","timestamp":"2025-06-21T09:01:44.385Z","username":"neuthos"}
+{"command":"/Apotek","level":"info","message":"Command received:","partnerId":1,"telegramId":1283954457,"timestamp":"2025-06-21T09:01:44.386Z"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1596,"partnerId":1,"telegramId":1283954457,"text":"Galang","timestamp":"2025-06-21T09:01:48.112Z","username":"neuthos"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1598,"partnerId":1,"telegramId":1283954457,"text":"085240708595","timestamp":"2025-06-21T09:01:53.692Z","username":"neuthos"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1600,"partnerId":1,"telegramId":1283954457,"text":"7171030308720002","timestamp":"2025-06-21T09:01:58.297Z","username":"neuthos"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1602,"partnerId":1,"telegramId":1283954457,"text":"/skip","timestamp":"2025-06-21T09:02:01.636Z","username":"neuthos"}
+{"command":"/skip","level":"info","message":"Command received:","partnerId":1,"telegramId":1283954457,"timestamp":"2025-06-21T09:02:01.636Z"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1605,"partnerId":1,"telegramId":1283954457,"text":"Asnawi Stone","timestamp":"2025-06-21T09:02:09.912Z","username":"neuthos"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1608,"partnerId":1,"telegramId":1283954457,"text":"/BankCentralAsia","timestamp":"2025-06-21T09:02:12.356Z","username":"neuthos"}
+{"command":"/BankCentralAsia","level":"info","message":"Command received:","partnerId":1,"telegramId":1283954457,"timestamp":"2025-06-21T09:02:12.357Z"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1610,"partnerId":1,"telegramId":1283954457,"text":"068901012420509","timestamp":"2025-06-21T09:02:16.597Z","username":"neuthos"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1612,"partnerId":1,"telegramId":1283954457,"text":"Gra","timestamp":"2025-06-21T09:02:22.026Z","username":"neuthos"}
+{"hasDocument":false,"hasPhoto":true,"level":"info","message":"Message received:","messageId":1614,"partnerId":1,"telegramId":1283954457,"text":"[photo/file]","timestamp":"2025-06-21T09:02:32.803Z","username":"neuthos"}
+{"fileName":"location_photos_1750496555217.jpg","fileUrl":"http://official.aigent.id/api/v1/files/0f1d3140-ebad-4470-bb18-a6806226c12f.jpg","level":"info","message":"File uploaded to CDN:","timestamp":"2025-06-21T09:02:38.480Z"}
+{"fileId":"AgACAgUAAxkBAAIGTmhWdSjWSGW4SCW0-20hYYPbtWpOAAKw0DEbMRW4VscsD8ql-3C1AQADAgADeQADNgQ","fileName":"location_photos_1750496555217.jpg","folderPath":"1/1283954457","level":"info","message":"Photo uploaded successfully","timestamp":"2025-06-21T09:02:38.481Z","uploadedUrl":"http://official.aigent.id/api/v1/files/0f1d3140-ebad-4470-bb18-a6806226c12f.jpg"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1616,"partnerId":1,"telegramId":1283954457,"text":"/lanjut","timestamp":"2025-06-21T09:02:41.865Z","username":"neuthos"}
+{"command":"/lanjut","level":"info","message":"Command received:","partnerId":1,"telegramId":1283954457,"timestamp":"2025-06-21T09:02:41.865Z"}
+{"hasDocument":false,"hasPhoto":true,"level":"info","message":"Message received:","messageId":1618,"partnerId":1,"telegramId":1283954457,"text":"[photo/file]","timestamp":"2025-06-21T09:02:49.599Z","username":"neuthos"}
+{"fileName":"bank_book_photo_1750496571690.jpg","fileUrl":"http://official.aigent.id/api/v1/files/95e5c5ec-ef38-4548-af32-4c84fd2f7657.jpg","level":"info","message":"File uploaded to CDN:","timestamp":"2025-06-21T09:02:52.877Z"}
+{"fileId":"AgACAgUAAxkBAAIGUmhWdTkSDIJzRLyUYSNKpas9uUszAAKx0DEbMRW4VpTT_cM-IvrnAQADAgADeQADNgQ","fileName":"bank_book_photo_1750496571690.jpg","folderPath":"1/1283954457","level":"info","message":"Photo uploaded successfully","timestamp":"2025-06-21T09:02:52.877Z","uploadedUrl":"http://official.aigent.id/api/v1/files/95e5c5ec-ef38-4548-af32-4c84fd2f7657.jpg"}
+{"hasDocument":false,"hasPhoto":true,"level":"info","message":"Message received:","messageId":1621,"partnerId":1,"telegramId":1283954457,"text":"[photo/file]","timestamp":"2025-06-21T09:03:03.416Z","username":"neuthos"}
+{"fileName":"id_card_photo_1750496585081.jpg","fileUrl":"http://official.aigent.id/api/v1/files/f269aad1-e647-4a64-9ec6-9c6d215e4f73.jpg","level":"info","message":"File uploaded to CDN:","timestamp":"2025-06-21T09:03:07.140Z"}
+{"fileId":"AgACAgUAAxkBAAIGVWhWdUcUvlgFMp9zTCebdWZu1_CEAAKy0DEbMRW4VjkcXCoSDP5xAQADAgADeQADNgQ","fileName":"id_card_photo_1750496585081.jpg","folderPath":"1/1283954457","level":"info","message":"Photo uploaded successfully","timestamp":"2025-06-21T09:03:07.140Z","uploadedUrl":"http://official.aigent.id/api/v1/files/f269aad1-e647-4a64-9ec6-9c6d215e4f73.jpg"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1624,"partnerId":1,"telegramId":1283954457,"text":"/setuju","timestamp":"2025-06-21T09:03:10.665Z","username":"neuthos"}
+{"command":"/setuju","level":"info","message":"Command received:","partnerId":1,"telegramId":1283954457,"timestamp":"2025-06-21T09:03:10.666Z"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1626,"partnerId":1,"telegramId":1283954457,"text":"/ya","timestamp":"2025-06-21T09:03:13.660Z","username":"neuthos"}
+{"command":"/ya","level":"info","message":"Command received:","partnerId":1,"telegramId":1283954457,"timestamp":"2025-06-21T09:03:13.660Z"}
+{"hasDocument":false,"hasPhoto":false,"level":"info","message":"Message received:","messageId":1628,"partnerId":1,"telegramId":1283954457,"text":"/setuju","timestamp":"2025-06-21T09:04:47.624Z","username":"neuthos"}
+{"command":"/setuju","level":"info","message":"Command received:","partnerId":1,"telegramId":1283954457,"timestamp":"2025-06-21T09:04:47.625Z"}
+{"error":{"code":"42703","file":"parse_target.c","length":131,"line":"1047","name":"error","position":"76","routine":"checkInsertTargets","severity":"ERROR"},"level":"error","message":"Error processing registration:","telegramId":1283954457,"timestamp":"2025-06-21T09:04:47.637Z"}
+{"level":"info","message":"Shutting down gracefully","timestamp":"2025-06-21T09:14:31.219Z"}
