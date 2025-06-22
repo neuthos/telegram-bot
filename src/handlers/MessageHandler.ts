@@ -96,6 +96,7 @@ export class MessageHandler {
 
       await this.processMessage(bot, msg, activeSession, partnerId);
     } catch (error) {
+      console.log(error);
       this.logger.error("Error handling message:", {
         partnerId,
         telegramId,
@@ -174,6 +175,28 @@ export class MessageHandler {
         break;
       case "/skip":
         await this.handleSkipCommand(bot, telegramId, partnerId);
+        break;
+      case "/setuju":
+      case "/tidaksetuju":
+        const session = await this.sessionService.getActiveSession(
+          partnerId,
+          telegramId
+        );
+        if (!session) {
+          await bot.sendMessage(
+            telegramId,
+            this.messages.generateNoActiveSessionMessage()
+          );
+          return;
+        }
+        await this.handleTermsConditions(
+          bot,
+          telegramId,
+          command,
+          session,
+          msg,
+          partnerId
+        );
         break;
       default:
         await this.handleSelectionCommand(
@@ -368,6 +391,35 @@ export class MessageHandler {
     await this.sendNextStepMessage(bot, telegramId, nextStep);
   }
 
+  private async handlePostalCodeInput(
+    bot: TelegramBot,
+    telegramId: number,
+    text: string,
+    session: UserSession
+  ): Promise<void> {
+    const postalRegex = /^\d{5}$/;
+    if (!postalRegex.test(text)) {
+      await bot.sendMessage(telegramId, "❌ Kode pos harus 5 digit angka.");
+      return;
+    }
+
+    const formData = {...session.form_data, postal_code: text};
+    const nextStep = await this.sessionService.getNextStep(formData);
+
+    await this.sessionService.createOrUpdateSession({
+      ...session,
+      form_data: formData,
+      current_step: nextStep,
+    });
+
+    await bot.sendMessage(
+      telegramId,
+      this.messages.generateFieldSuccessMessage("postal_code", text, nextStep)
+    );
+
+    await this.sendNextStepMessage(bot, telegramId, nextStep);
+  }
+
   private async processMessage(
     bot: TelegramBot,
     msg: TelegramBot.Message,
@@ -411,7 +463,9 @@ export class MessageHandler {
           partnerId
         );
         break;
-      // Flow baru dimulai dari AGENT_NAME (setelah KTP OCR)
+      case SessionStep.POSTAL_CODE:
+        await this.handlePostalCodeInput(bot, telegramId, text!, session);
+        break;
       case SessionStep.AGENT_NAME:
         await this.handleAgentNameInput(
           bot,
@@ -455,13 +509,7 @@ export class MessageHandler {
         );
         break;
       case SessionStep.ACCOUNT_NUMBER:
-        await this.handleAccountNumberInput(
-          bot,
-          telegramId,
-          text!,
-          session,
-          partnerId
-        );
+        await this.handleAccountNumberInput(bot, telegramId, text!, session);
         break;
       case SessionStep.TERMS_CONDITIONS:
         await this.handleTermsConditions(
@@ -570,7 +618,6 @@ export class MessageHandler {
           id_card_number: ocrResult.data.id_card_number,
           religion: ocrResult.data.religion,
           occupation: ocrResult.data.occupation,
-          postal_code: ocrResult.data.postal_code,
         };
 
         const nextStep = await this.sessionService.getNextStep(formData);
@@ -591,9 +638,6 @@ export class MessageHandler {
             `💼 Pekerjaan: ${
               ocrResult.data.occupation || "Tidak terdeteksi"
             }\n` +
-            `📮 Kode Pos: ${
-              ocrResult.data.postal_code || "Tidak terdeteksi"
-            }\n\n` +
             `Lanjutkan ke step berikutnya...`
         );
 
@@ -1266,9 +1310,9 @@ export class MessageHandler {
     bot: TelegramBot,
     telegramId: number,
     text: string,
-    session: UserSession,
-    partnerId: number
+    session: UserSession
   ): Promise<void> {
+    console.log(123123);
     if (!text || text.length < 8 || text.length > 20) {
       await bot.sendMessage(
         telegramId,

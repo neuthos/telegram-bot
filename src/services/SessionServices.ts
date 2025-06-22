@@ -27,10 +27,12 @@ export class SessionService {
     telegramId: number
   ): Promise<UserSession | null> {
     const cacheKey = `session:${partnerId}:${telegramId}`;
-    const cached = await this.cache.get<UserSession>(cacheKey);
 
+    // 1. Coba cache dulu
+    let cached = await this.cache.get<UserSession>(cacheKey);
     if (cached) return cached;
 
+    // 2. Fallback ke DB kalau cache miss
     const result = await this.db.query(
       `SELECT * FROM active_sessions 
       WHERE partner_id = $1 AND telegram_id = $2`,
@@ -44,7 +46,8 @@ export class SessionService {
       form_data: result.rows[0].form_data || {},
     };
 
-    await this.cache.set(cacheKey, session, 300);
+    // 3. Refresh cache untuk next request
+    await this.cache.set(cacheKey, session, 1800); // 30 menit
     return session;
   }
 
@@ -108,10 +111,11 @@ export class SessionService {
         form_data: result.rows[0].form_data || {},
       };
 
+      // Update cache setelah DB success
       await this.cache.set(
         `session:${session.partner_id}:${session.telegram_id}`,
         updatedSession,
-        300
+        1800 // 30 menit
       );
 
       return updatedSession;
@@ -309,6 +313,7 @@ export class SessionService {
   public async getNextStep(formData: FormData): Promise<SessionStep> {
     // Flow baru: KTP photo pertama untuk OCR
     if (!formData.id_card_photo) return SessionStep.ID_CARD_PHOTO;
+    if (!formData.postal_code) return SessionStep.POSTAL_CODE;
 
     // Setelah OCR KTP, data yang tidak ada di KTP perlu diisi manual
     if (!formData.agent_name) return SessionStep.AGENT_NAME;

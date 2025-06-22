@@ -117,6 +117,7 @@ export enum SessionStep {
 
   // Flow baru - KTP upload pertama
   ID_CARD_PHOTO = "id_card_photo",
+  POSTAL_CODE = "postal_code",
 
   // Data yang tidak ada di KTP
   AGENT_NAME = "agent_name",

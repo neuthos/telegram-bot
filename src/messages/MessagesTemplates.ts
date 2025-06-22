@@ -151,6 +151,13 @@ Upload foto KTP Anda untuk proses OCR otomatis.
 
 Sistem akan otomatis membaca dan mengisi data: Nama, NIK, Alamat, Agama, Pekerjaan, dan Kode Pos.`,
 
+      [SessionStep.POSTAL_CODE]: `📮 **Step 1.2: Kode Pos**
+
+Masukkan kode pos dari alamat KTP Anda.
+
+Format: 5 digit angka
+Contoh: 10110, 40123, 60271`,
+
       [SessionStep.AGENT_NAME]: `📝 **Step 2: Nama Agen**
 
 Masukkan nama agen/toko Anda.
@@ -286,6 +293,7 @@ Silakan periksa kembali data Anda sebelum mengirim.`,
       signature_photo: "❌ Silakan upload foto tanda tangan, bukan teks.",
       location_photos: "❌ Silakan upload foto lokasi, bukan teks.",
       bank_book_photo: "❌ Silakan upload foto buku rekening, bukan teks.",
+      postal_code: "❌ Kode pos harus 5 digit angka.",
     };
 
     return errorMessages[field] || `❌ Input tidak valid untuk ${field}.`;
@@ -311,8 +319,10 @@ Silakan periksa kembali data Anda sebelum mengirim.`,
     const fieldNames: {[key: string]: string} = {
       agent_name: "Nama Agen",
       owner_name: "Nama Pemilik",
+      business_field: "Bidang Usaha",
       pic_name: "Nama PIC",
       pic_phone: "Nomor Telepon PIC",
+      postal_code: "Kode Pos",
       tax_number: "Nomor NPWP",
       account_holder_name: "Nama Pemilik Rekening",
       bank_name: "Nama Bank",
@@ -449,8 +459,8 @@ Terjadi kesalahan saat menyimpan data. Silakan coba lagi atau hubungi admin jika
     let message = `🏦 **Pilih Bank Anda**\n\nSilakan pilih dengan mengetik command berikut:\n\n`;
 
     banks.forEach((bank: any, index) => {
-      const command = bank.bank_display.toLowerCase().replace(/\s+/g, "");
-      message += `/${command} - ${bank.bank_display}\n`;
+      const command = bank?.toLowerCase().replace(/\s+/g, "");
+      message += `/${command} - ${bank}\n`;
     });
 
     return message;
@@ -461,10 +471,10 @@ Terjadi kesalahan saat menyimpan data. Silakan coba lagi atau hubungi admin jika
     const fields = await this.businessFieldService.getAllBusinessFields();
 
     let message = `🏢 **Pilih Bidang Usaha**\n\nSilakan pilih dengan mengetik command berikut:\n\n`;
-
+    console.log({fields});
     fields.forEach((field: any, index) => {
-      const command = field.name.toLowerCase().replace(/\s+/g, "");
-      message += `/${command} - ${field.name}\n`;
+      const command = field?.toLowerCase().replace(/\s+/g, "");
+      message += `/${command} - ${field}\n`;
     });
 
     return message;
@@ -536,20 +546,21 @@ Terjadi kesalahan saat menyimpan data. Silakan coba lagi atau hubungi admin jika
   private getStepNumber(step: SessionStep): number {
     const stepNumbers: {[key in SessionStep]?: number} = {
       [SessionStep.ID_CARD_PHOTO]: 1,
-      [SessionStep.AGENT_NAME]: 2,
-      [SessionStep.OWNER_NAME]: 3,
-      [SessionStep.BUSINESS_FIELD]: 4,
-      [SessionStep.PIC_NAME]: 5,
-      [SessionStep.PIC_PHONE]: 6,
-      [SessionStep.TAX_NUMBER]: 7,
-      [SessionStep.ACCOUNT_HOLDER_NAME]: 8,
-      [SessionStep.BANK_NAME]: 9,
-      [SessionStep.ACCOUNT_NUMBER]: 10,
-      [SessionStep.SIGNATURE_PHOTO]: 11,
-      [SessionStep.LOCATION_PHOTOS]: 12,
-      [SessionStep.BANK_BOOK_PHOTO]: 13,
-      [SessionStep.TERMS_CONDITIONS]: 14,
-      [SessionStep.CONFIRMATION]: 15,
+      [SessionStep.POSTAL_CODE]: 2,
+      [SessionStep.AGENT_NAME]: 3,
+      [SessionStep.OWNER_NAME]: 4,
+      [SessionStep.BUSINESS_FIELD]: 5,
+      [SessionStep.PIC_NAME]: 6,
+      [SessionStep.PIC_PHONE]: 7,
+      [SessionStep.TAX_NUMBER]: 8,
+      [SessionStep.ACCOUNT_HOLDER_NAME]: 9,
+      [SessionStep.BANK_NAME]: 10,
+      [SessionStep.ACCOUNT_NUMBER]: 11,
+      [SessionStep.SIGNATURE_PHOTO]: 12,
+      [SessionStep.LOCATION_PHOTOS]: 13,
+      [SessionStep.BANK_BOOK_PHOTO]: 14,
+      [SessionStep.TERMS_CONDITIONS]: 15,
+      [SessionStep.CONFIRMATION]: 16,
     };
 
     return stepNumbers[step] || 0;
@@ -679,8 +690,8 @@ Dengan melanjutkan, saya menyatakan telah membaca, memahami, dan menyetujui semu
 
 Apakah Anda menyetujui syarat dan ketentuan di atas?
 
-**Setuju** - ✅ Ya, saya setuju
-**Tidak Setuju** - ❌ Tidak, saya tidak setuju`;
+**Setuju** - ✅ Ya, saya setuju (/setuju)
+**Tidak Setuju** - ❌ Tidak, saya tidak setuju (/tidaksetuju)`;
   }
 
   public generateContinueRegistrationMessage(nextStep: SessionStep): string {
