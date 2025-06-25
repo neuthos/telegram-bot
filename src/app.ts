@@ -28,7 +28,7 @@ app.get("/health", (req, res) => {
     features: {
       ocr_enabled: process.env.ENABLE_OCR === "true",
       signature_processing: process.env.ENABLE_SIGNATURE_PROCESSING === "true",
-      compressed_photos: process.env.ENABLE_COMPRESSED_PHOTOS === "true",
+      compressed_photos: true,
     },
   });
 });
@@ -101,11 +101,6 @@ async function startServer() {
       console.log(
         `   • Signature Processing: ${
           process.env.ENABLE_SIGNATURE_PROCESSING === "true" ? "✅" : "❌"
-        }`
-      );
-      console.log(
-        `   • Compressed Photos: ${
-          process.env.ENABLE_COMPRESSED_PHOTOS === "true" ? "✅" : "❌"
         }`
       );
     });

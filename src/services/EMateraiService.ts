@@ -34,7 +34,7 @@ export class EmeteraiService {
         applicationId,
         "getting_token"
       );
-
+      console.log({partnerId});
       const token = await this.tokenManager.getEmeteraiToken(partnerId);
 
       const application = await this.sessionService.getKYCApplicationById(

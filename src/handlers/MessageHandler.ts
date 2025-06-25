@@ -178,6 +178,25 @@ export class MessageHandler {
         break;
       case "/setuju":
       case "/tidaksetuju":
+        const confirmedApp = await this.sessionService.getKYCApplication(
+          partnerId,
+          telegramId
+        );
+        if (
+          confirmedApp &&
+          confirmedApp.status === "confirmed" &&
+          confirmedApp.user_emeterai_consent === null
+        ) {
+          const consent = command === "/setuju";
+          await this.handleEmeteraiConsent(
+            bot,
+            telegramId,
+            consent,
+            confirmedApp
+          );
+          return;
+        }
+
         const session = await this.sessionService.getActiveSession(
           partnerId,
           telegramId
@@ -189,11 +208,36 @@ export class MessageHandler {
           );
           return;
         }
+
         await this.handleTermsConditions(
           bot,
           telegramId,
           command,
           session,
+          msg,
+          partnerId
+        );
+        break;
+      case "/ya":
+      case "/tidak":
+        const confirmSession = await this.sessionService.getActiveSession(
+          partnerId,
+          telegramId
+        );
+        if (!confirmSession) {
+          await bot.sendMessage(
+            telegramId,
+            this.messages.generateNoActiveSessionMessage()
+          );
+          return;
+        }
+        const actionText =
+          command === "/ya" ? "Ya, Daftarkan" : "Tidak, Ulangi Pendaftaran";
+        await this.handleConfirmation(
+          bot,
+          telegramId,
+          actionText,
+          confirmSession,
           msg,
           partnerId
         );
@@ -263,6 +307,10 @@ export class MessageHandler {
       const businessFieldMessage =
         await this.messages.generateBusinessFieldSelectionMessage();
       await bot.sendMessage(telegramId, businessFieldMessage);
+    } else if (nextStep === SessionStep.BANK_NAME) {
+      await bot.sendMessage(telegramId, message);
+      const bankMessage = await this.messages.generateBankSelectionMessage();
+      await bot.sendMessage(telegramId, bankMessage);
     } else {
       await bot.sendMessage(telegramId, message);
     }
@@ -420,6 +468,185 @@ export class MessageHandler {
     await this.sendNextStepMessage(bot, telegramId, nextStep);
   }
 
+  private async handleAccountOwnerConfirmation(
+    bot: TelegramBot,
+    telegramId: number,
+    text: string,
+    session: UserSession
+  ): Promise<void> {
+    let isSame: boolean;
+
+    if (text === "Ya" || text === "/ya") {
+      isSame = true;
+    } else if (text === "Tidak" || text === "/tidak") {
+      isSame = false;
+    } else {
+      await bot.sendMessage(
+        telegramId,
+        "❌ Pilihan tidak valid. Ketik 'Ya' atau 'Tidak'"
+      );
+      return;
+    }
+
+    let formData = {...session.form_data, account_owner_same: isSame};
+
+    if (isSame) {
+      formData.account_holder_name = session.form_data.full_name;
+    }
+
+    const nextStep = await this.sessionService.getNextStep(formData);
+
+    await this.sessionService.createOrUpdateSession({
+      ...session,
+      form_data: formData,
+      current_step: nextStep,
+    });
+
+    if (isSame) {
+      await bot.sendMessage(
+        telegramId,
+        `✅ Nama pemilik rekening: ${formData.account_holder_name}`
+      );
+    } else {
+      await bot.sendMessage(
+        telegramId,
+        "✅ Anda akan diminta mengisi nama pemilik rekening terpisah."
+      );
+    }
+
+    await this.sendNextStepMessage(bot, telegramId, nextStep);
+  }
+
+  private async handleSerialNumberInput(
+    bot: TelegramBot,
+    telegramId: number,
+    text: string,
+    session: UserSession
+  ): Promise<void> {
+    if (!text || text.length < 3) {
+      await bot.sendMessage(
+        telegramId,
+        "❌ Serial number EDC harus minimal 3 karakter."
+      );
+      return;
+    }
+
+    const formData = {...session.form_data, serial_number_edc: text};
+    const nextStep = await this.sessionService.getNextStep(formData);
+
+    await this.sessionService.createOrUpdateSession({
+      ...session,
+      form_data: formData,
+      current_step: nextStep,
+    });
+
+    await bot.sendMessage(
+      telegramId,
+      this.messages.generateFieldSuccessMessage(
+        "serial_number_edc",
+        text,
+        nextStep
+      )
+    );
+
+    await this.sendNextStepMessage(bot, telegramId, nextStep);
+  }
+
+  private async handleIdCardPreview(
+    bot: TelegramBot,
+    telegramId: number,
+    text: string,
+    session: UserSession
+  ): Promise<void> {
+    if (text === "/konfirm") {
+      const formData = {...session.form_data, id_card_confirmed: true};
+      const nextStep = await this.sessionService.getNextStep(formData);
+
+      await this.sessionService.createOrUpdateSession({
+        ...session,
+        form_data: formData,
+        current_step: nextStep,
+      });
+
+      await bot.sendMessage(telegramId, "✅ Data KTP dikonfirmasi!");
+      await this.sendNextStepMessage(bot, telegramId, nextStep);
+    } else if (text === "/ulangi") {
+      const formData = {...session.form_data};
+      delete formData.id_card_photo;
+      delete formData.full_name;
+      delete formData.address;
+      delete formData.id_card_number;
+      delete formData.religion;
+      delete formData.occupation;
+
+      await this.sessionService.createOrUpdateSession({
+        ...session,
+        form_data: formData,
+        current_step: SessionStep.ID_CARD_PHOTO,
+      });
+
+      await bot.sendMessage(
+        telegramId,
+        "🔄 Silakan upload ulang foto KTP Anda."
+      );
+      await this.sendNextStepMessage(
+        bot,
+        telegramId,
+        SessionStep.ID_CARD_PHOTO
+      );
+    } else {
+      await bot.sendMessage(
+        telegramId,
+        "❌ Pilihan tidak valid. Gunakan /konfirm atau /ulangi"
+      );
+    }
+  }
+
+  private async handleSignaturePreview(
+    bot: TelegramBot,
+    telegramId: number,
+    text: string,
+    session: UserSession
+  ): Promise<void> {
+    if (text === "/konfirm") {
+      const formData = {...session.form_data, signature_confirmed: true};
+      const nextStep = await this.sessionService.getNextStep(formData);
+
+      await this.sessionService.createOrUpdateSession({
+        ...session,
+        form_data: formData,
+        current_step: nextStep,
+      });
+
+      await bot.sendMessage(telegramId, "✅ Tanda tangan dikonfirmasi!");
+      await this.sendNextStepMessage(bot, telegramId, nextStep);
+    } else if (text === "/ulangi") {
+      const formData = {...session.form_data};
+      delete formData.signature_photo;
+
+      await this.sessionService.createOrUpdateSession({
+        ...session,
+        form_data: formData,
+        current_step: SessionStep.SIGNATURE_PHOTO,
+      });
+
+      await bot.sendMessage(
+        telegramId,
+        "🔄 Silakan upload ulang foto tanda tangan Anda."
+      );
+      await this.sendNextStepMessage(
+        bot,
+        telegramId,
+        SessionStep.SIGNATURE_PHOTO
+      );
+    } else {
+      await bot.sendMessage(
+        telegramId,
+        "❌ Pilihan tidak valid. Gunakan /konfirm atau /ulangi"
+      );
+    }
+  }
+
   private async processMessage(
     bot: TelegramBot,
     msg: TelegramBot.Message,
@@ -540,6 +767,23 @@ export class MessageHandler {
           this.messages.generatePhotoValidationError(session.current_step)
         );
         break;
+      case SessionStep.ACCOUNT_OWNER_CONFIRMATION:
+        await this.handleAccountOwnerConfirmation(
+          bot,
+          telegramId,
+          text!,
+          session
+        );
+        break;
+      case SessionStep.SERIAL_NUMBER_EDC:
+        await this.handleSerialNumberInput(bot, telegramId, text!, session);
+        break;
+      case SessionStep.ID_CARD_PREVIEW:
+        await this.handleIdCardPreview(bot, telegramId, text!, session);
+        break;
+      case SessionStep.SIGNATURE_PREVIEW:
+        await this.handleSignaturePreview(bot, telegramId, text!, session);
+        break;
       default:
         await this.handleUnknownMessage(bot, telegramId, partnerId);
     }
@@ -612,7 +856,6 @@ export class MessageHandler {
         const formData = {
           ...session.form_data,
           id_card_photo: fileUrl,
-          // Data dari OCR
           full_name: ocrResult.data.full_name,
           address: ocrResult.data.address,
           id_card_number: ocrResult.data.id_card_number,
@@ -630,18 +873,19 @@ export class MessageHandler {
 
         await bot.sendMessage(
           telegramId,
-          `✅ KTP berhasil diproses!\n\n📋 Data yang terdeteksi:\n` +
+          `✅ **KTP berhasil diproses!**\n\n` +
+            `📋 **Data yang terdeteksi:**\n` +
             `👤 Nama: ${ocrResult.data.full_name}\n` +
             `🆔 NIK: ${ocrResult.data.id_card_number}\n` +
             `📍 Alamat: ${ocrResult.data.address}\n` +
             `⛪ Agama: ${ocrResult.data.religion || "Tidak terdeteksi"}\n` +
             `💼 Pekerjaan: ${
               ocrResult.data.occupation || "Tidak terdeteksi"
-            }\n` +
-            `Lanjutkan ke step berikutnya...`
+            }\n\n` +
+            `Apakah data sudah benar?\n\n` +
+            `/konfirm - ✅ Ya, data benar\n` +
+            `/ulangi - ❌ Upload ulang KTP`
         );
-
-        await this.sendNextStepMessage(bot, telegramId, nextStep);
       } else {
         await bot.sendMessage(
           telegramId,
@@ -685,17 +929,23 @@ export class MessageHandler {
         await this.sessionService.createOrUpdateSession({
           ...session,
           form_data: formData,
-          current_step: nextStep,
+          current_step: nextStep, // akan ke SIGNATURE_PREVIEW
         });
 
-        await bot.sendMessage(
+        // Kirim preview signature
+        await bot.sendPhoto(
           telegramId,
-          `✅ Tanda tangan berhasil diproses!\n` +
-            `📐 Ukuran: ${signatureResult.data.width}x${signatureResult.data.height}px\n\n` +
-            `Background telah dihapus dan siap digunakan di dokumen.`
+          signatureResult.data.processed_image_url,
+          {
+            caption:
+              `✅ **Tanda tangan berhasil diproses!**\n\n` +
+              `📐 Ukuran: ${signatureResult.data.width}x${signatureResult.data.height}px\n` +
+              `Background telah dihapus dan siap digunakan.\n\n` +
+              `Apakah hasil sudah sesuai?\n\n` +
+              `/konfirm - ✅ Ya, gunakan tanda tangan ini\n` +
+              `/ulangi - ❌ Upload ulang tanda tangan`,
+          }
         );
-
-        await this.sendNextStepMessage(bot, telegramId, nextStep);
       } else {
         await bot.sendMessage(
           telegramId,
@@ -933,6 +1183,11 @@ export class MessageHandler {
   ): Promise<void> {
     switch (text) {
       case "Daftar KYC":
+        const existingSession = await this.sessionService.getActiveSession(
+          partnerId,
+          telegramId
+        );
+
         await this.sessionService.createOrUpdateSession({
           partner_id: partnerId,
           telegram_id: telegramId,
@@ -940,7 +1195,7 @@ export class MessageHandler {
           first_name: msg.from!.first_name,
           last_name: msg.from!.last_name,
           current_step: SessionStep.REGISTRATION_START,
-          form_data: {},
+          form_data: existingSession?.form_data || {},
         });
 
         await bot.sendMessage(
@@ -973,7 +1228,7 @@ export class MessageHandler {
           username: msg.from!.username,
           first_name: msg.from!.first_name,
           last_name: msg.from!.last_name,
-          current_step: SessionStep.ID_CARD_PHOTO, // Flow baru dimulai dari KTP
+          current_step: SessionStep.ID_CARD_PHOTO,
           form_data: {},
         });
 
@@ -1627,7 +1882,7 @@ export class MessageHandler {
       default:
         await bot.sendMessage(
           telegramId,
-          this.messages.generateTermsConditionsMessage()
+          "❌ Pilihan tidak valid. Gunakan /setuju atau /tidaksetuju"
         );
     }
   }
@@ -1693,6 +1948,7 @@ export class MessageHandler {
   ): Promise<void> {
     try {
       await this.sessionService.updateEmeteraiConsent(application.id!, consent);
+      console.log({consent});
 
       if (consent) {
         await bot.sendMessage(
@@ -1705,7 +1961,8 @@ export class MessageHandler {
           new (require("../services/EMateraiService").EmeteraiService)();
         await emeteraiService.processStamping(
           application.id!,
-          application.confirmed_by_name!
+          application.confirmed_by_name!,
+          application.partner_id
         );
 
         // Send success notification with stamped PDF
@@ -1722,6 +1979,7 @@ export class MessageHandler {
         );
       }
     } catch (error) {
+      console.log(error);
       this.logger.error("Error handling e-meterai consent:", {
         telegramId,
         consent,

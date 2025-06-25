@@ -6,6 +6,7 @@ import {kycController} from "../controllers/kycController";
 
 const router = Router();
 
+router.post("/process-artajasa", kycController.processStampedForArtajasa);
 router.use(authMiddleware);
 
 // Existing routes
@@ -36,4 +37,5 @@ router.put("/:id/artajasa-review", kycController.updateArtajasaReview);
 router.put("/:id/emeterai-consent", kycController.updateEmeteraiConsent);
 router.post("/bulk/emeterai-status", kycController.getBulkEmeteraiStatus);
 
+// FOR AUTOMATION
 export default router;

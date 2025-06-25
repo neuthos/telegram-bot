@@ -37,6 +37,7 @@ export interface KYCApplication {
   account_holder_name: string;
   bank_name: string;
   account_number: string;
+  serial_number_edc?: string;
 
   // Excel data yang tidak ada di form
   tid?: string;
@@ -65,6 +66,8 @@ export interface KYCApplication {
   user_emeterai_consent?: boolean;
   is_processed: boolean;
   is_reviewed_by_artajasa: boolean;
+  google_drive_url?: string;
+
   created_at?: Date;
   updated_at?: Date;
 }
@@ -97,6 +100,8 @@ export interface FormData {
   account_holder_name?: string;
   bank_name?: string;
   account_number?: string;
+  account_owner_same?: boolean;
+  serial_number_edc?: string;
 
   // Photo uploads
   id_card_photo?: string; // PERTAMA - untuk OCR
@@ -109,6 +114,8 @@ export interface FormData {
   province_name?: string;
   city_code?: string;
   city_name?: string;
+  id_card_confirmed?: boolean;
+  signature_confirmed?: boolean;
 }
 
 export enum SessionStep {
@@ -130,8 +137,7 @@ export enum SessionStep {
   BANK_NAME = "bank_name",
   ACCOUNT_NUMBER = "account_number",
 
-  // Upload lainnya
-  SIGNATURE_PHOTO = "signature_photo", // Ganti dari SIGNATURE_INITIAL
+  SIGNATURE_PHOTO = "signature_photo",
   LOCATION_PHOTOS = "location_photos",
   BANK_BOOK_PHOTO = "bank_book_photo",
 
@@ -141,6 +147,11 @@ export enum SessionStep {
 
   PROVINCE_SELECTION = "province_selection",
   CITY_SELECTION = "city_selection",
+  ACCOUNT_OWNER_CONFIRMATION = "account_owner_confirmation",
+  SERIAL_NUMBER_EDC = "serial_number_edc",
+
+  ID_CARD_PREVIEW = "id_card_preview",
+  SIGNATURE_PREVIEW = "signature_preview",
 }
 
 export interface ApiResponse<T = any> {
@@ -184,6 +195,7 @@ export interface KYCListResponse {
   remark?: string;
   stamped_by?: string;
   stamped_at?: Date;
+  google_drive_url?: string;
 }
 
 // E-Meterai specific types

@@ -1,8 +1,8 @@
 import * as XLSX from "xlsx";
 import {KYCApplication} from "../types";
-import {ExcelExportData} from "../types/excel";
 import {CDNService} from "./CDNService";
 import {Logger} from "../config/logger";
+import {Database} from "../config/database";
 
 export class ExcelExportService {
   private cdnService = new CDNService();
@@ -10,70 +10,9 @@ export class ExcelExportService {
 
   public async exportToExcel(applications: KYCApplication[]): Promise<string> {
     try {
-      const excelData = applications.map((app, index) =>
-        this.generateExcelData(app, index + 1)
-      );
-
       const workbook = XLSX.utils.book_new();
-      const worksheet = XLSX.utils.json_to_sheet(excelData);
 
-      // Set column widths
-      const columnWidths = [
-        {wch: 5}, // NO
-        {wch: 12}, // TID
-        {wch: 12}, // MID
-        {wch: 12}, // Tgl FPA
-        {wch: 25}, // NAMA CORPORATE AGEN
-        {wch: 20}, // NAMA AGEN
-        {wch: 40}, // ALAMAT
-        {wch: 15}, // KOTA
-        {wch: 10}, // PROVINSI
-        {wch: 12}, // KODE DATI 2
-        {wch: 15}, // NOMOR TELEPON
-        {wch: 20}, // NAMA PEMILIK AGEN
-        {wch: 20}, // NAMA PEMILIK REKENING
-        {wch: 10}, // KODE BANK
-        {wch: 20}, // NAMA BANK
-        {wch: 15}, // NOMOR REKENING
-        {wch: 15}, // JENIS KARTU ATM
-        {wch: 25}, // BIDANG USAHA
-        {wch: 15}, // TIPE EDC
-        {wch: 15}, // SERIAL NUMBER EDC
-        {wch: 8}, // MCC
-        {wch: 15}, // JAM OPERASIONAL
-        {wch: 20}, // FITUR MINI ATM
-      ];
-
-      worksheet["!cols"] = columnWidths;
-
-      // Set headers
-      const headers = [
-        "NO",
-        "TID",
-        "MID",
-        "Tgl FPA",
-        "NAMA CORPORATE AGEN",
-        "NAMA AGEN",
-        "ALAMAT",
-        "KOTA",
-        "PROVINSI (INITIAL 3 DIGIT)",
-        "KODE DATI 2",
-        "NOMOR TELEPON PEMILIK",
-        "NAMA PEMILIK AGEN",
-        "NAMA PEMILIK REKENING",
-        "KODE BANK (6 Digit)",
-        "NAMA BANK",
-        "NOMOR REKENING",
-        "JENIS KARTU ATM AGEN (Debit/CC/GPN)",
-        "BIDANG USAHA",
-        "Tipe EDC",
-        "Serial Number EDC",
-        "MCC",
-        "JAM OPERASIONAL OUTLET",
-        "FITUR MINI ATM (Transfer, Cek Saldo)",
-      ];
-
-      XLSX.utils.sheet_add_aoa(worksheet, [headers], {origin: "A1"});
+      const worksheet = await this.createWorksheet(applications);
 
       XLSX.utils.book_append_sheet(workbook, worksheet, "KYC Data");
 
@@ -102,57 +41,231 @@ export class ExcelExportService {
     }
   }
 
-  public generateExcelData(
-    application: KYCApplication,
-    index: number
-  ): ExcelExportData {
-    // Get bank code from bank name mapping
-    const bankCode = this.getBankCode(application.bank_name);
+  private async createWorksheet(applications: KYCApplication[]) {
+    const worksheet = XLSX.utils.aoa_to_sheet([]);
 
-    // Get province initial (first 3 characters)
-    const provinceInitial = application.province_code?.substring(0, 3) || "";
+    const header1 = [
+      "NO",
+      "TID",
+      "",
+      "MID",
+      "",
+      "",
+      "",
+      "Tgl FPA",
+      "NAMA CORPOORATE AGEN",
+      "NAMA AGEN",
+      "ALAMAT",
+      "KOTA",
+      "PROVINSI (INTIAL 3 DIGIT)",
+      "KODE DATI 2",
+      "NOMOR TELEPON PEMILIK",
+      "NAMA PEMILIK AGEN",
+      "NAMA PEMILIK REKENING",
+      "KODE BANK (6 Digit)",
+      "NAMA BANK",
+      "NOMOR REKENING",
+      "JENIS KARTU ATM AGEN",
+      "BIDANG USAHA",
+      "Tipe EDC",
+      "Serial Number EDC",
+      "MCC",
+      "JAM OPERASIONAL OUTLET",
+      "FITUR",
+      "URL",
+    ];
 
-    return {
-      no: index,
-      tid: application.tid || "",
-      mid: application.mid || "",
-      tgl_fpa: "24 Mei 2025", // Static data
-      nama_corporate_agen: "PT. Ekosistem Pasar Digital", // Static data
-      nama_agen: application.agent_name,
-      alamat: application.address, // Dari OCR
-      kota: application.city_name || "",
-      provinsi_initial: provinceInitial,
-      kode_dati_2: application.city_code || "",
-      nomor_telepon_pemilik: application.pic_phone,
-      nama_pemilik_agen: application.full_name, // Dari OCR
-      nama_pemilik_rekening: application.account_holder_name,
-      kode_bank: bankCode,
-      nama_bank: application.bank_name,
-      nomor_rekening: application.account_number,
-      jenis_kartu_atm: "Debit/CC/GPN", // Static data
-      bidang_usaha: application.business_field,
-      tipe_edc: "Centerm - K9", // Static data
-      serial_number_edc: "", // To be filled by other company
-      mcc: application.mcc || "",
-      jam_operasional: "07:00 - 22:00", // Static data
-      fitur_mini_atm: "All Fitur", // Static data
-    };
+    const header2 = [
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "(Debit/CC/GPN)",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "MINI ATM (Transfer, Cek Saldo)",
+      "",
+    ];
+
+    XLSX.utils.sheet_add_aoa(worksheet, [header1], {origin: "A1"});
+    XLSX.utils.sheet_add_aoa(worksheet, [header2], {origin: "A2"});
+
+    for (let index = 0; index < applications.length; index++) {
+      const app = applications[index];
+      const rowData = await this.generateRowData(app, index + 1);
+      XLSX.utils.sheet_add_aoa(worksheet, [rowData], {origin: `A${index + 3}`});
+    }
+
+    worksheet["!cols"] = [
+      {wch: 5},
+      {wch: 12},
+      {wch: 12},
+      {wch: 12},
+      {wch: 25},
+      {wch: 20},
+      {wch: 40},
+      {wch: 15},
+      {wch: 10},
+      {wch: 12},
+      {wch: 15},
+      {wch: 20},
+      {wch: 22},
+      {wch: 17},
+      {wch: 15},
+      {wch: 15},
+      {wch: 15},
+      {wch: 25},
+      {wch: 11},
+      {wch: 16},
+      {wch: 5},
+      {wch: 15},
+      {wch: 20},
+      {wch: 17},
+      {wch: 5},
+      {wch: 15},
+      {wch: 26},
+      {wch: 10},
+    ];
+
+    worksheet["!merges"] = [
+      {s: {c: 0, r: 0}, e: {c: 0, r: 1}},
+
+      {s: {c: 1, r: 0}, e: {c: 2, r: 1}},
+
+      {s: {c: 3, r: 0}, e: {c: 6, r: 1}},
+
+      {s: {c: 7, r: 0}, e: {c: 7, r: 1}},
+
+      {s: {c: 8, r: 0}, e: {c: 8, r: 1}},
+
+      {s: {c: 9, r: 0}, e: {c: 9, r: 1}},
+
+      {s: {c: 10, r: 0}, e: {c: 10, r: 1}},
+
+      {s: {c: 11, r: 0}, e: {c: 11, r: 1}},
+
+      {s: {c: 12, r: 0}, e: {c: 12, r: 1}},
+
+      {s: {c: 13, r: 0}, e: {c: 13, r: 1}},
+
+      {s: {c: 14, r: 0}, e: {c: 14, r: 1}},
+
+      {s: {c: 15, r: 0}, e: {c: 15, r: 1}},
+
+      {s: {c: 16, r: 0}, e: {c: 16, r: 1}},
+
+      {s: {c: 17, r: 0}, e: {c: 17, r: 1}},
+
+      {s: {c: 18, r: 0}, e: {c: 18, r: 1}},
+
+      {s: {c: 19, r: 0}, e: {c: 19, r: 1}},
+
+      {s: {c: 21, r: 0}, e: {c: 21, r: 1}},
+
+      {s: {c: 22, r: 0}, e: {c: 22, r: 1}},
+
+      {s: {c: 23, r: 0}, e: {c: 23, r: 1}},
+
+      {s: {c: 24, r: 0}, e: {c: 24, r: 1}},
+
+      {s: {c: 25, r: 0}, e: {c: 25, r: 1}},
+
+      {s: {c: 27, r: 0}, e: {c: 27, r: 1}},
+    ];
+
+    return worksheet;
   }
 
-  private getBankCode(bankName: string): string {
-    const bankCodes: {[key: string]: string} = {
-      "Bank Central Asia": "014",
-      "Bank Mandiri": "008",
-      "Bank Negara Indonesia": "009",
-      "Bank Rakyat Indonesia": "002",
-      "Bank CIMB Niaga": "022",
-      "Bank Danamon": "011",
-      "Bank Permata": "013",
-      "Bank Syariah Indonesia": "451",
-      "Bank Mega": "426",
-      "Bank OCBC NISP": "028",
-    };
+  private async generateRowData(
+    application: KYCApplication,
+    index: number
+  ): Promise<any[]> {
+    const bankCode = await this.getBankCode(application.bank_name);
+    const provinceInitial = application.province_code?.substring(0, 3) || "";
+    const fullAddress = application.postal_code
+      ? `${application.address}, ${application.postal_code}`
+      : application.address;
 
-    return bankCodes[bankName] || "000";
+    return [
+      index,
+      application.tid || "",
+      "",
+      application.mid || "",
+      "",
+      "",
+      "",
+      "2025-05-23",
+      "PT. EKOSISTEM PASAR DIGITAL",
+      application.agent_name,
+      fullAddress,
+      application.city_name || "",
+      provinceInitial,
+      application.city_code || "",
+      application.pic_phone,
+      application.full_name,
+      application.account_holder_name,
+      bankCode,
+      application.bank_name,
+      application.account_number,
+      "Debit/CC/GPN",
+      application.business_field,
+      "Centerm - K9",
+      application.serial_number_edc || "",
+      application.mcc || "",
+      "07:00 - 22:00",
+      "All Fitur",
+      application.google_drive_url || "", // Add Google Drive URL
+    ];
+  }
+
+  private async getBankCode(bankName: string): Promise<string> {
+    try {
+      const db = Database.getInstance().getPool();
+      const result = await db.query(
+        "SELECT bank_code FROM banks WHERE bank_display = $1",
+        [bankName]
+      );
+
+      if (result.rows.length > 0 && result.rows[0].bank_code) {
+        return result.rows[0].bank_code.padStart(6, "0");
+      }
+
+      return "000000";
+    } catch (error) {
+      this.logger.error("Error getting bank code:", error);
+      return "000000";
+    }
+  }
+
+  public async exportToExcelBuffer(
+    applications: KYCApplication[]
+  ): Promise<Buffer> {
+    const workbook = XLSX.utils.book_new();
+    const worksheet = await this.createWorksheet(applications);
+    XLSX.utils.book_append_sheet(workbook, worksheet, "KYC Data");
+
+    return XLSX.write(workbook, {
+      type: "buffer",
+      bookType: "xlsx",
+    }) as Buffer;
   }
 }

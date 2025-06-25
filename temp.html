@@ -1,124 +1,10 @@
-// src/services/PdfService.ts - Updated untuk flow baru
 
-import puppeteer from "puppeteer";
-import {KYCApplication, KYCPhoto} from "../types";
-import {Logger} from "../config/logger";
-import {CDNService} from "./CDNService";
-import {EmeteraiService} from "./EMateraiService";
-import * as fs from "fs";
-export class PDFService {
-  private logger = Logger.getInstance();
-  private cdnService = new CDNService();
-  private emateraiService = new EmeteraiService();
-
-  public async generateKYCPDF(
-    application: KYCApplication,
-    photos: KYCPhoto[]
-  ): Promise<string> {
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
-
-    try {
-      const page = await browser.newPage();
-
-      const html = this.generateHTMLTemplate(application, photos);
-
-      fs.writeFileSync("temp.html", html);
-
-      await page.setContent(html, {waitUntil: "networkidle0"});
-
-      const fileName = `kyc_${application.id}_${Date.now()}.pdf`;
-
-      const pdfBuffer = await page.pdf({
-        format: "A4",
-        margin: {top: "0px", right: "0px", bottom: "0px", left: "0px"},
-        printBackground: true,
-      });
-
-      const convertedBuffer = await this.emateraiService.pdfConvert(
-        application.id as number,
-        pdfBuffer,
-        application.partner_id
-      );
-
-      const pdfUrl = await this.cdnService.uploadFile(
-        convertedBuffer,
-        fileName,
-        "application/pdf"
-      );
-
-      this.logger.info("PDF generated and uploaded:", {
-        applicationId: application.id,
-        fileName,
-        pdfUrl,
-      });
-
-      return pdfUrl;
-    } finally {
-      await browser.close();
-    }
-  }
-
-  formatAddress = (address: string) => {
-    if (!address) return {line1: "", line2: "", line3: ""};
-
-    const addressParts = address.split(",").map((part) => part.trim());
-
-    if (addressParts.length <= 3) {
-      return {
-        line1: addressParts[0] || "",
-        line2: addressParts[1] || "",
-        line3: addressParts[2] || "",
-      };
-    } else {
-      const line1 = addressParts[0];
-      const line2 = addressParts.slice(1, -2).join(", ");
-      const line3 = addressParts.slice(-2).join(", ");
-
-      return {line1, line2, line3};
-    }
-  };
-
-  private generateHTMLTemplate(
-    application: KYCApplication,
-    photos: KYCPhoto[]
-  ): string {
-    const today = new Date();
-    const day = today.getDate();
-    const month = today.toLocaleString("id-ID", {month: "long"});
-    const year = today.getFullYear().toString().slice(-2);
-
-    const fullAddress = application.postal_code
-      ? `${application.address}, ${application.postal_code}`
-      : application.address;
-    const addressFormatted = this.formatAddress(fullAddress || "");
-
-    const addressLine1 = addressFormatted.line1;
-    const addressLine2 = addressFormatted.line2;
-    const addressLine3 = addressFormatted.line3;
-
-    // Separate photos into different pages
-    const photoPages = this.generatePhotoPages(photos);
-
-    const partnerName = application.confirmed_by_partner || "Partner";
-    const confirmedByName = application.confirmed_by_name || "Admin";
-    const confirmedByInitial = application.confirmed_by_initial || "Admin";
-
-    // Get signature photo untuk display
-    const signaturePhoto = photos.find((p) => p.photo_type === "signature");
-    const signatureDisplay = signaturePhoto
-      ? `<img src="${signaturePhoto.file_url}" alt="Signature" class="max-w-full max-h-full object-contain mx-auto" style="height: 60px" />`
-      : `<div class="signature-initials">${application.pic_name}</div>`;
-
-    return `
       <!DOCTYPE html>
       <html lang="id">
         <head>
           <meta charset="UTF-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          <title>Formulir Agen - ${application.agent_name}</title>
+          <title>Formulir Agen - EPADI-01</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <link rel="preconnect" href="https://fonts.googleapis.com" />
           <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -188,39 +74,25 @@ export class PDFService {
                   <label for="jenisPerorangan" class="text-xs font-semibold">Perorangan</label>
                   <br />
                   <label class="text-[10px] text-left pr-3">Nama Agen</label>
-                  <input type="text" value="${
-                    application.agent_name
-                  }" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
+                  <input type="text" value="EPADI-01" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
                   <label class="text-[10px] text-left pr-3 self-start">Alamat Agen</label>
                   <div>
-                    <input type="text" value="${addressLine1}" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
-                    <input type="text" value="${addressLine2}" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
-                    <input type="text" value="${addressLine3}" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
+                    <input type="text" value="JL. GATOT SUBROTO NO. 67 RT 002 RW 004 KEL. MAKMUR KOTA BANDUNG" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
+                    <input type="text" value="10110" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
+                    <input type="text" value="" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
                   </div>
                   <label class="text-[10px] text-left pr-3">Nama Pemilik</label>
-                  <input type="text" value="${
-                    application.owner_name
-                  }" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
+                  <input type="text" value="AGUS WIJAYA" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
                   <label class="text-[10px] text-left pr-3">Bidang Usaha</label>
-                  <input type="text" value="${
-                    application.business_field
-                  }" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
+                  <input type="text" value="Bengkel" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
                   <label class="text-[10px] text-left pr-3">Nama PIC</label>
-                  <input type="text" value="${
-                    application.pic_name
-                  }" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
+                  <input type="text" value="Agus Adek" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
                   <label class="text-[10px] text-left pr-3">No. Telp / No. Hp PIC</label>
-                  <input type="text" value="${
-                    application.pic_phone
-                  }" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
+                  <input type="text" value="081234567890" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
                   <label class="text-[10px] text-left pr-3">No. KTP Pemilik</label>
-                  <input type="text" value="${
-                    application.id_card_number
-                  }" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
+                  <input type="text" value="3273456789012345" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
                   <label class="text-[10px] text-left pr-3">No. NPWP (jika ada)</label>
-                  <input type="text" value="${
-                    application.tax_number || ""
-                  }" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
+                  <input type="text" value="123456789012345" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
                 </div>
               </div>
 
@@ -233,17 +105,11 @@ export class PDFService {
                   <label class="text-xs font-semibold">Rekening</label>
                   <br />
                   <label class="text-[10px] text-left pr-3">Nama Pemilik Rekening</label>
-                  <input type="text" value="${
-                    application.account_holder_name
-                  }" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
+                  <input type="text" value="AGUS WIJAYA" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
                   <label class="text-[10px] text-left pr-3">Nama Bank</label>
-                  <input type="text" value="${
-                    application.bank_name
-                  }" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
+                  <input type="text" value="Bank CIMB Niaga" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
                   <label class="text-[10px] text-left pr-3">Nomor Rekening</label>
-                  <input type="text" value="${
-                    application.account_number
-                  }" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
+                  <input type="text" value="068901012420509" class="w-full border-0 border-b border-gray-600 bg-transparent text-[10px] focus:outline-none" />
                 </div>
               </div>
               <div class="mt-8 ml-7 w-1/2">
@@ -273,26 +139,24 @@ export class PDFService {
 
             <div class="mt-2 text-xs">
               <p class="text-[10px] leading-tight text-justify mb-8">
-                Dengan menandatangani Formulir Informasi Agen ini, saya menyatakan bahwa semua informasi yang saya berikan adalah lengkap dan benar serta saya sepakat untuk tunduk dan terikat pada ketentuan-ketentuan yang diberlakukan oleh ${partnerName}, termasuk tetapi tidak terbatas pada Syarat dan Ketentuan Agen yang terlampir dalam Formulir Informasi Agen ini, berikut dengan segenap perubahannya yang ditetapkan dari waktu ke waktu.
+                Dengan menandatangani Formulir Informasi Agen ini, saya menyatakan bahwa semua informasi yang saya berikan adalah lengkap dan benar serta saya sepakat untuk tunduk dan terikat pada ketentuan-ketentuan yang diberlakukan oleh Partner, termasuk tetapi tidak terbatas pada Syarat dan Ketentuan Agen yang terlampir dalam Formulir Informasi Agen ini, berikut dengan segenap perubahannya yang ditetapkan dari waktu ke waktu.
               </p>
               <div class="mb-1">Untuk dan atas nama Agen,</div>
               <div class="flex flex-col items-start">
                 <div class="flex gap-2 text-left mb-1">
                   <div class="mb-1">
-                    Mataram, <span class="border-b border-black px-2">${day}</span> <span class="border-b border-black px-2">${month}</span> 20<span class="border-b border-black px-2">${year}</span>
+                    Mataram, <span class="border-b border-black px-2">23</span> <span class="border-b border-black px-2">Juni</span> 20<span class="border-b border-black px-2">25</span>
                   </div>
                   <div class="text-[8px]">(Tanggal Efektif)</div>
                 </div>
                 <div class="mt-1 px-5 flex items-center justify-between w-full">
                   <div>
                     <div class="mb-3 flex mx-auto" style="height: 60px">
-                      ${signatureDisplay}
+                      <img src="http://official.aigent.id/api/v1/files/ba5d80ae-7377-441f-a337-5286bbbc1c82.jpg" alt="Signature" class="max-w-full max-h-full object-contain mx-auto" style="height: 60px" />
                     </div>
                     <div class="flex items-center justify-center">
                       <span class="text-[8px]">(</span>
-                      <div class="text-xs text-center border-b border-black px-6">${
-                        application.pic_name
-                      }</div>
+                      <div class="text-xs text-center border-b border-black px-6">Agus Adek</div>
                       <span class="text-[8px]">)</span>
                     </div>
                   </div>
@@ -327,14 +191,14 @@ export class PDFService {
             <p class="text-[10px] mt-2 italic">*) Agar dilengkapi sesuai dengan persyaratan jenis Agen (Badan Usaha/Perorangan)</p>
             <div class="mt-4 text-xs">
               <div class="mb-2">Diverifikasi dan divalidasi oleh,</div>
-              <p class="font-bold">${partnerName}<br />(Mitra)</p>
-              <div class="mt-2">Mataram, <span class="border-b border-black px-2">${day}</span> <span class="border-b border-black px-2">${month}</span> 20<span class="border-b border-black px-2">${year}</span></div>
+              <p class="font-bold">Partner<br />(Mitra)</p>
+              <div class="mt-2">Mataram, <span class="border-b border-black px-2">23</span> <span class="border-b border-black px-2">Juni</span> 20<span class="border-b border-black px-2">25</span></div>
               <div class="flex justify-between">
                 <div>
-                  <div class="signature-initials mt-12 text-center mb-3">${confirmedByInitial}</div>
+                  <div class="signature-initials mt-12 text-center mb-3">Admin</div>
                   <div class="flex">
                     <span class="text-[8px]">(</span>
-                    <div class="text-xs text-center border-b border-black px-6">${confirmedByName}</div>
+                    <div class="text-xs text-center border-b border-black px-6">Admin</div>
                     <span class="text-[8px]">)</span>
                   </div>
                 </div>
@@ -342,77 +206,61 @@ export class PDFService {
             </div>
           </div>
 
-          ${photoPages}
-        </body>
-      </html>
-    `;
-  }
-
-  private generatePhotoPages(photos: KYCPhoto[]): string {
-    if (!photos || photos.length === 0) {
-      return `
-      <div class="page bg-white p-6 border border-gray-400 flex items-center justify-center">
-        <div class="text-center text-gray-500">
-          <p>Tidak ada foto terlampir.</p>
-        </div>
-      </div>
-    `;
-    }
-
-    const photoTypeNames: Record<string, string> = {
-      location_photos: "Foto Lokasi",
-      id_card: "Foto KTP",
-      bank_book: "Foto Buku Rekening",
-    };
-
-    const filteredPhotos = photos.filter(
-      (photo) => photo.photo_type !== "signature"
-    );
-    const groupedPhotos: Record<string, KYCPhoto[]> = {};
-
-    filteredPhotos.forEach((photo) => {
-      if (!groupedPhotos[photo.photo_type]) {
-        groupedPhotos[photo.photo_type] = [];
-      }
-      groupedPhotos[photo.photo_type].push(photo);
-    });
-
-    let photoPages = "";
-    let photoCount = 0;
-
-    const orderedTypes = ["location_photos", "id_card", "bank_book"];
-
-    orderedTypes.forEach((photoType) => {
-      const photoList = groupedPhotos[photoType];
-      if (!photoList) return;
-
-      photoList.forEach((photo, index) => {
-        const caption = `${photoTypeNames[photoType] || "Foto Lainnya"}${
-          photoList.length > 1 ? ` ${index + 1}` : ""
-        }`;
-
-        photoPages += `
+          
         <div class="page bg-white p-6 border border-gray-400 flex flex-col">
           <div class="text-center mb-4">
             <h3 class="text-lg font-bold">LAMPIRAN FOTO</h3>
-            <p class="text-sm text-gray-600">${caption}</p>
+            <p class="text-sm text-gray-600">Foto Lokasi</p>
           </div>
           <div class="flex-1 flex items-center justify-center">
             <img 
-              src="${photo.file_url}" 
-              alt="${caption}" 
+              src="http://official.aigent.id/api/v1/files/8915744c-5174-4e26-9e3a-855121ac8cbd.jpg" 
+              alt="Foto Lokasi" 
               class="max-w-full max-h-full object-contain"
               style="width: 100%; height: auto;"
             />
           </div>
           <div class="text-center text-xs text-gray-500 mt-4">
-            Halaman ${++photoCount} dari ${filteredPhotos.length} foto
+            Halaman 1 dari 3 foto
           </div>
         </div>
-      `;
-      });
-    });
-
-    return photoPages;
-  }
-}
+      
+        <div class="page bg-white p-6 border border-gray-400 flex flex-col">
+          <div class="text-center mb-4">
+            <h3 class="text-lg font-bold">LAMPIRAN FOTO</h3>
+            <p class="text-sm text-gray-600">Foto KTP</p>
+          </div>
+          <div class="flex-1 flex items-center justify-center">
+            <img 
+              src="http://official.aigent.id/api/v1/files/f74a0103-8934-44b2-b86a-dcf550dd8e53.jpg" 
+              alt="Foto KTP" 
+              class="max-w-full max-h-full object-contain"
+              style="width: 100%; height: auto;"
+            />
+          </div>
+          <div class="text-center text-xs text-gray-500 mt-4">
+            Halaman 2 dari 3 foto
+          </div>
+        </div>
+      
+        <div class="page bg-white p-6 border border-gray-400 flex flex-col">
+          <div class="text-center mb-4">
+            <h3 class="text-lg font-bold">LAMPIRAN FOTO</h3>
+            <p class="text-sm text-gray-600">Foto Buku Rekening</p>
+          </div>
+          <div class="flex-1 flex items-center justify-center">
+            <img 
+              src="http://official.aigent.id/api/v1/files/35e35fe7-f70b-4362-a653-2eca7a35fc46.jpg" 
+              alt="Foto Buku Rekening" 
+              class="max-w-full max-h-full object-contain"
+              style="width: 100%; height: auto;"
+            />
+          </div>
+          <div class="text-center text-xs text-gray-500 mt-4">
+            Halaman 3 dari 3 foto
+          </div>
+        </div>
+      
+        </body>
+      </html>
+    

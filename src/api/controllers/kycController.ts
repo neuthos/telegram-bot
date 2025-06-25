@@ -15,6 +15,7 @@ import {
 import TelegramBot from "node-telegram-bot-api";
 import {MessageTemplates} from "../../messages/MessagesTemplates";
 import {ExcelExportService} from "../../services/ExcelExportService";
+import {ArtajasaService} from "../../services/ArtajasaService";
 
 export class KYCController {
   private sessionService = new SessionService();
@@ -181,24 +182,30 @@ export class KYCController {
 
   // 3. Confirm Applications
   public confirmApplication = async (
-    req: Request,
+    req: AuthRequest,
     res: Response<ApiResponse>
   ): Promise<void> => {
     try {
       const {id} = req.params;
-      const {name, initial, partner_name}: ConfirmRequest = req.body;
-
-      if (!name || !initial || !partner_name) {
+      const {name, initial}: ConfirmRequest = req.body;
+      if (!name || !initial) {
         res.status(400).json({
           success: false,
           message: "Name, initial, and partner_name are required",
         });
         return;
       }
+      const partnerResult = await this.sessionService.db.query(
+        "SELECT name FROM partners WHERE id = $1",
+        [req.partnerId]
+      );
+
+      const partnerName = partnerResult.rows[0]?.name || "Partner";
 
       const application = await this.sessionService.getKYCApplicationById(
         parseInt(id)
       );
+
       if (!application) {
         res.status(404).json({
           success: false,
@@ -215,27 +222,26 @@ export class KYCController {
         return;
       }
 
-      await this.sessionService.updateApplicationStatusWithAdmin(
-        parseInt(id),
-        "confirmed",
-        name,
-        initial,
-        partner_name
-      );
-
-      // Generate PDF immediately after confirmation
       const photos = await this.sessionService.getApplicationPhotos(
         parseInt(id)
       );
       const updatedApplication =
         await this.sessionService.getKYCApplicationById(parseInt(id));
+
       const pdfUrl = await this.pdfService.generateKYCPDF(
         updatedApplication!,
         photos
       );
       await this.sessionService.updateApplicationPdfUrl(parseInt(id), pdfUrl);
 
-      // Send Telegram notification
+      await this.sessionService.updateApplicationStatusWithAdmin(
+        parseInt(id),
+        "confirmed",
+        name,
+        initial,
+        partnerName
+      );
+
       await this.sendTelegramNotification(
         application.telegram_id,
         "confirmed",
@@ -263,7 +269,6 @@ export class KYCController {
     }
   };
 
-  // 4. Bulk Confirm Applications
   public bulkConfirmApplications = async (
     req: Request,
     res: Response<ApiResponse>
@@ -1330,7 +1335,6 @@ Anda dapat mendaftar ulang dengan data yang benar menggunakan /daftar`;
       let applications: any[];
 
       if (applicationIds && Array.isArray(applicationIds)) {
-        // Export specific applications
         applications = [];
         for (const id of applicationIds) {
           const app = await this.sessionService.getKYCApplicationById(id);
@@ -1373,6 +1377,49 @@ Anda dapat mendaftar ulang dengan data yang benar menggunakan /daftar`;
       res.status(500).json({
         success: false,
         message: "Failed to export Excel file",
+      });
+    }
+  };
+
+  public getAllConfirmedAndStamped = async (
+    req: AuthRequest,
+    res: Response<ApiResponse>
+  ): Promise<void> => {
+    try {
+      const applications =
+        await this.sessionService.getAllConfirmedAndStamped();
+
+      res.json({
+        success: true,
+        data: applications,
+      });
+    } catch (error) {
+      this.logger.error("Error getting KYC list:", error);
+      res.status(500).json({
+        success: false,
+        message: "Internal server error",
+      });
+    }
+  };
+
+  public processStampedForArtajasa = async (
+    req: AuthRequest,
+    res: Response<ApiResponse>
+  ): Promise<void> => {
+    try {
+      const artajasaService = new ArtajasaService();
+      const result = await artajasaService.processStampedApplications();
+
+      res.json({
+        success: true,
+        message: `Processed ${result.processedCount} applications for Artajasa`,
+        data: result,
+      });
+    } catch (error) {
+      this.logger.error("Error processing for Artajasa:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to process applications for Artajasa",
       });
     }
   };

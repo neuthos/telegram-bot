@@ -165,28 +165,29 @@ export class SessionService {
 
       const applicationResult = await client.query(
         `INSERT INTO kyc_applications (
-         partner_id, telegram_id, username, first_name, last_name,
-         full_name, address, religion, occupation, postal_code, id_card_number,
-         agent_name, owner_name, business_field, pic_name, pic_phone,
-         tax_number, account_holder_name, bank_name, account_number,
-         province_code, province_name, city_code, city_name, status,
-         is_processed, is_reviewed_by_artajasa
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
-       RETURNING id`,
+   partner_id, telegram_id, username, first_name, last_name,
+   full_name, address, religion, occupation, postal_code, id_card_number,
+   agent_name, owner_name, business_field, pic_name, pic_phone,
+   tax_number, account_holder_name, bank_name, account_number,
+   serial_number_edc, 
+   province_code, province_name, city_code, city_name, status,
+   is_processed, is_reviewed_by_artajasa
+ ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
+ RETURNING id`,
         [
           session.partner_id,
           session.telegram_id,
           session.username,
           session.first_name,
           session.last_name,
-          session.form_data.full_name, // dari OCR
-          session.form_data.address, // dari OCR
-          session.form_data.religion, // dari OCR
-          session.form_data.occupation, // dari OCR
-          session.form_data.postal_code, // dari OCR
-          session.form_data.id_card_number, // dari OCR
+          session.form_data.full_name,
+          session.form_data.address,
+          session.form_data.religion,
+          session.form_data.occupation,
+          session.form_data.postal_code,
+          session.form_data.id_card_number,
           session.form_data.agent_name,
-          session.form_data.owner_name,
+          session.form_data.full_name,
           session.form_data.business_field,
           session.form_data.pic_name,
           session.form_data.pic_phone,
@@ -194,13 +195,14 @@ export class SessionService {
           session.form_data.account_holder_name,
           session.form_data.bank_name,
           session.form_data.account_number,
+          session.form_data.serial_number_edc,
           session.form_data.province_code,
           session.form_data.province_name,
           session.form_data.city_code,
           session.form_data.city_name,
           "draft",
-          false, // is_processed
-          false, // is_reviewed_by_artajasa
+          false,
+          false,
         ]
       );
 
@@ -311,32 +313,29 @@ export class SessionService {
   }
 
   public async getNextStep(formData: FormData): Promise<SessionStep> {
-    // Flow baru: KTP photo pertama untuk OCR
     if (!formData.id_card_photo) return SessionStep.ID_CARD_PHOTO;
+    if (!formData.id_card_confirmed) return SessionStep.ID_CARD_PREVIEW;
     if (!formData.postal_code) return SessionStep.POSTAL_CODE;
-
-    // Setelah OCR KTP, data yang tidak ada di KTP perlu diisi manual
     if (!formData.agent_name) return SessionStep.AGENT_NAME;
-    if (!formData.owner_name) return SessionStep.OWNER_NAME;
     if (!formData.business_field) return SessionStep.BUSINESS_FIELD;
     if (!formData.pic_name) return SessionStep.PIC_NAME;
     if (!formData.pic_phone) return SessionStep.PIC_PHONE;
-
-    // Tax number opsional
     if (formData.tax_number === undefined) return SessionStep.TAX_NUMBER;
 
-    // Bank data
-    if (!formData.account_holder_name) return SessionStep.ACCOUNT_HOLDER_NAME;
+    // Bank account owner check
+    if (formData.account_owner_same === undefined)
+      return SessionStep.ACCOUNT_OWNER_CONFIRMATION;
+    if (formData.account_owner_same === false && !formData.account_holder_name)
+      return SessionStep.ACCOUNT_HOLDER_NAME;
+
     if (!formData.bank_name) return SessionStep.BANK_NAME;
     if (!formData.account_number) return SessionStep.ACCOUNT_NUMBER;
-
-    // Photo uploads (signature menggantikan initial)
+    if (!formData.serial_number_edc) return SessionStep.SERIAL_NUMBER_EDC;
     if (!formData.signature_photo) return SessionStep.SIGNATURE_PHOTO;
+    if (!formData.signature_confirmed) return SessionStep.SIGNATURE_PREVIEW;
     if (!formData.location_photos || formData.location_photos.length === 0)
       return SessionStep.LOCATION_PHOTOS;
     if (!formData.bank_book_photo) return SessionStep.BANK_BOOK_PHOTO;
-
-    // Final steps
     if (formData.terms_accepted === undefined)
       return SessionStep.TERMS_CONDITIONS;
 
@@ -362,13 +361,13 @@ export class SessionService {
     return result.rows;
   }
 
-  async getAllKYCApplications(partnerId: number): Promise<KYCListResponse[]> {
+  async getAllKYCApplications(partnerId?: number): Promise<KYCListResponse[]> {
     const result = await this.db.query(
       `SELECT *, is_processed, province_name, city_name
        FROM kyc_applications 
-       WHERE partner_id = $1
+       WHERE partner_id ${partnerId ? "=" : "is not"} $1
        ORDER BY created_at DESC`,
-      [partnerId]
+      [partnerId || null]
     );
 
     return result.rows as KYCListResponse[];
@@ -680,5 +679,33 @@ export class SessionService {
       });
       throw error;
     }
+  }
+
+  async getAllConfirmedAndStamped(): Promise<KYCListResponse[]> {
+    const result = await this.db.query(
+      `SELECT *
+       FROM kyc_applications 
+       WHERE status = 'confirmed' AND stamped_pdf_url IS NOT NULL AND is_reviewed_by_artajasa = false
+       ORDER BY created_at DESC`
+    );
+
+    return result.rows as KYCListResponse[];
+  }
+
+  async updateGoogleDriveUrl(
+    applicationId: number,
+    driveUrl: string
+  ): Promise<void> {
+    await this.db.query(
+      "UPDATE kyc_applications SET google_drive_url = $1 WHERE id = $2",
+      [driveUrl, applicationId]
+    );
+  }
+
+  async markAsReviewedByArtajasa(applicationIds: number[]): Promise<void> {
+    await this.db.query(
+      "UPDATE kyc_applications SET is_reviewed_by_artajasa = true WHERE id = ANY($1)",
+      [applicationIds]
+    );
   }
 }

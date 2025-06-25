@@ -96,7 +96,7 @@ Anda dapat mendaftar ulang dengan data yang benar.
   }
 
   public generateRegistrationOptionsMessage(): string {
-    return `📋 **Pendaftaran KYC**
+    return `📋 Pendaftaran KYC
 
 Pilih opsi pendaftaran:
 
@@ -112,37 +112,36 @@ Ketik pilihan Anda atau gunakan:
   public generateStartRegistrationMessage(): string {
     return `📋 Memulai Pendaftaran KYC
 
-🔄 **ALUR BARU dengan OCR:**
+🔄 ALUR BARU dengan OCR:
 
-📸 **Langkah 1: Upload Foto KTP**
+📸 Langkah 1: Upload Foto KTP
 Sistem akan otomatis membaca data KTP Anda menggunakan OCR (Optical Character Recognition).
 
-📝 **Langkah 2-8: Isi Data Manual** 
+📝 Langkah 2-8: Isi Data Manual 
 Data yang tidak ada di KTP perlu diisi manual.
 
-✍️ **Langkah 9: Upload Foto Tanda Tangan**
+✍️ Langkah 9: Upload Foto Tanda Tangan
 Upload foto tanda tangan yang akan diproses otomatis (background dihapus).
 
-📸 **Langkah 10-12: Upload Foto Dokumen**
+📸 Langkah 10-12: Upload Foto Dokumen
 Upload foto lokasi, buku rekening, dll.
 
-✅ **Langkah 13-14: Konfirmasi**
+✅ Langkah 13-14: Konfirmasi
 Setuju syarat & ketentuan dan konfirmasi data.
 
 ---
 
-📸 **Mulai dengan upload foto KTP Anda**
+📸 Mulai dengan upload foto KTP Anda
 Pastikan foto KTP jelas, tidak buram, dan semua teks terbaca untuk hasil OCR yang optimal.`;
   }
 
-  // STEP MESSAGES - Flow Baru
   public generateStepMessage(step: SessionStep): string {
     const stepMessages: {[key in SessionStep]?: string} = {
-      [SessionStep.ID_CARD_PHOTO]: `📸 **Step 1: Upload Foto KTP**
+      [SessionStep.ID_CARD_PHOTO]: `📸 Step 1: Upload Foto KTP
 
 Upload foto KTP Anda untuk proses OCR otomatis.
 
-📋 **Tips untuk foto KTP yang baik:**
+📋 Tips untuk foto KTP yang baik:
 - Foto harus jelas dan tidak buram
 - Semua teks harus terbaca
 - Pencahayaan yang cukup
@@ -151,36 +150,36 @@ Upload foto KTP Anda untuk proses OCR otomatis.
 
 Sistem akan otomatis membaca dan mengisi data: Nama, NIK, Alamat, Agama, Pekerjaan, dan Kode Pos.`,
 
-      [SessionStep.POSTAL_CODE]: `📮 **Step 1.2: Kode Pos**
+      [SessionStep.POSTAL_CODE]: `📮 Step 1.2: Kode Pos
 
 Masukkan kode pos dari alamat KTP Anda.
 
 Format: 5 digit angka
 Contoh: 10110, 40123, 60271`,
 
-      [SessionStep.AGENT_NAME]: `📝 **Step 2: Nama Agen**
+      [SessionStep.AGENT_NAME]: `📝 Step 2: Nama Agen
 
 Masukkan nama agen/toko Anda.
 
 Contoh: EPADI-01, Warung Maju, Toko Berkah`,
 
-      [SessionStep.OWNER_NAME]: `📝 **Step 3: Nama Pemilik**
+      [SessionStep.OWNER_NAME]: `📝 Step 3: Nama Pemilik
 
 Masukkan nama pemilik usaha.
 
 Contoh: Budi Santoso, Siti Rahayu`,
 
-      [SessionStep.BUSINESS_FIELD]: `📝 **Step 4: Bidang Usaha**
+      [SessionStep.BUSINESS_FIELD]: `📝 Step 4: Bidang Usaha
 
 Pilih bidang usaha Anda dari daftar yang tersedia.`,
 
-      [SessionStep.PIC_NAME]: `📝 **Step 5: Nama PIC (Person In Charge)**
+      [SessionStep.PIC_NAME]: `📝 Step 5: Nama PIC (Person In Charge)
 
 Masukkan nama orang yang bertanggung jawab.
 
 Contoh: Budi Santoso, Siti Rahayu`,
 
-      [SessionStep.PIC_PHONE]: `📝 **Step 6: Nomor Telepon PIC**
+      [SessionStep.PIC_PHONE]: `📝 Step 6: Nomor Telepon PIC
 
 Masukkan nomor telepon/HP PIC.
 
@@ -191,35 +190,35 @@ Format yang diterima:
 
 Contoh: 081234567890`,
 
-      [SessionStep.TAX_NUMBER]: `📝 **Step 7: Nomor NPWP (Opsional)**
+      [SessionStep.TAX_NUMBER]: `📝 Step 7: Nomor NPWP (Opsional)
 
 Masukkan nomor NPWP jika ada, atau ketik /skip untuk lewati.
 
 Format: 15 digit angka
 Contoh: 123456789012345`,
 
-      [SessionStep.ACCOUNT_HOLDER_NAME]: `📝 **Step 8: Nama Pemilik Rekening**
+      [SessionStep.ACCOUNT_HOLDER_NAME]: `📝 Step 8: Nama Pemilik Rekening
 
 Masukkan nama pemilik rekening bank.
 
 Contoh: Budi Santoso, Siti Rahayu`,
 
-      [SessionStep.BANK_NAME]: `🏦 **Step 9: Nama Bank**
+      [SessionStep.BANK_NAME]: `🏦 Step 9: Nama Bank
 
 Pilih bank Anda dari daftar yang tersedia.`,
 
-      [SessionStep.ACCOUNT_NUMBER]: `📝 **Step 10: Nomor Rekening**
+      [SessionStep.ACCOUNT_NUMBER]: `📝 Step 10: Nomor Rekening
 
 Masukkan nomor rekening bank Anda.
 
 Panjang: 8-20 digit
 Contoh: 1234567890, 068901012420509`,
 
-      [SessionStep.SIGNATURE_PHOTO]: `✍️ **Step 11: Upload Foto Tanda Tangan**
+      [SessionStep.SIGNATURE_PHOTO]: `✍️ Step 11: Upload Foto Tanda Tangan
 
 Upload foto tanda tangan Anda.
 
-📋 **Tips untuk foto tanda tangan:**
+📋 Tips untuk foto tanda tangan:
 - Gunakan background putih/terang
 - Tanda tangan jelas dan kontras
 - Tidak ada bayangan
@@ -227,11 +226,11 @@ Upload foto tanda tangan Anda.
 
 Sistem akan otomatis menghapus background dan menyesuaikan ukuran untuk dokumen.`,
 
-      [SessionStep.LOCATION_PHOTOS]: `📸 **Step 12: Upload Foto Lokasi**
+      [SessionStep.LOCATION_PHOTOS]: `📸 Step 12: Upload Foto Lokasi
 
 Upload foto lokasi usaha Anda (1-4 foto).
 
-📋 **Foto yang diperlukan:**
+📋 Foto yang diperlukan:
 - Tampak depan toko/warung
 - Papan nama (jika ada)
 - Tampak dalam
@@ -239,40 +238,72 @@ Upload foto lokasi usaha Anda (1-4 foto).
 
 Kirim foto satu per satu, lalu ketik "Lanjut" jika selesai.`,
 
-      [SessionStep.BANK_BOOK_PHOTO]: `📄 **Step 13: Upload Foto Buku Rekening**
+      [SessionStep.BANK_BOOK_PHOTO]: `📄 Step 13: Upload Foto Buku Rekening
 
 Upload foto halaman pertama buku rekening/tabungan Anda.
 
-📋 **Tips:**
+📋 Tips:
 - Foto harus jelas dan terbaca
 - Tampilkan nama pemilik dan nomor rekening
 - Pencahayaan yang baik`,
 
-      [SessionStep.TERMS_CONDITIONS]: `📋 **Step 14: Syarat dan Ketentuan**
+      [SessionStep.TERMS_CONDITIONS]: `📋 Step 14: Syarat dan Ketentuan
 
 Silakan baca dan setujui syarat dan ketentuan berikut:
 
-**SYARAT DAN KETENTUAN KYC**
+SYARAT DAN KETENTUAN KYC
 
-1. **Kebenaran Data**: Saya menjamin bahwa semua data yang saya berikan adalah benar dan akurat.
+1. Kebenaran Data: Saya menjamin bahwa semua data yang saya berikan adalah benar dan akurat.
 
-2. **Tanggung Jawab**: Saya bertanggung jawab penuh atas kebenaran dan keakuratan data yang diberikan.
+2. Tanggung Jawab: Saya bertanggung jawab penuh atas kebenaran dan keakuratan data yang diberikan.
 
-3. **Penggunaan Data**: Data saya akan digunakan untuk proses verifikasi KYC dan keperluan bisnis terkait.
+3. Penggunaan Data: Data saya akan digunakan untuk proses verifikasi KYC dan keperluan bisnis terkait.
 
-4. **Verifikasi**: Perusahaan berhak memverifikasi dan meminta dokumen tambahan jika diperlukan.
+4. Verifikasi: Perusahaan berhak memverifikasi dan meminta dokumen tambahan jika diperlukan.
 
-5. **Penolakan**: Perusahaan berhak menolak aplikasi jika data tidak valid atau tidak memenuhi syarat.
+5. Penolakan: Perusahaan berhak menolak aplikasi jika data tidak valid atau tidak memenuhi syarat.
 
-6. **Privasi**: Data akan disimpan dan digunakan sesuai kebijakan privasi perusahaan.
+6. Kerahasiaan Data: Data akan disimpan dan digunakan sesuai kebijakan privasi perusahaan.
 
-7. **Perubahan**: Syarat dan ketentuan dapat berubah sewaktu-waktu dengan pemberitahuan.
+7. Perubahan: Syarat dan ketentuan dapat berubah sewaktu-waktu dengan pemberitahuan.
 
-Apakah Anda menyetujui syarat dan ketentuan di atas?`,
+Apakah Anda menyetujui syarat dan ketentuan di atas?
 
-      [SessionStep.CONFIRMATION]: `🔍 **Step 15: Konfirmasi Data**
+/setuju - ✅ Ya, saya setuju
+/tidaksetuju - ❌ Tidak, saya tidak setuju`,
+
+      [SessionStep.CONFIRMATION]: `🔍 Step 15: Konfirmasi Data
 
 Silakan periksa kembali data Anda sebelum mengirim.`,
+      [SessionStep.ACCOUNT_OWNER_CONFIRMATION]: `💰 Step 8: Konfirmasi Pemilik Rekening
+
+Apakah nama pemilik rekening bank sama dengan nama pemilik usaha?
+
+Jika sama, Anda tidak perlu mengisi nama pemilik rekening lagi.
+Jika berbeda, Anda akan diminta mengisi nama pemilik rekening terpisah.
+
+Ya - Sama dengan pemilik usaha
+Tidak - Berbeda dengan pemilik usaha`,
+
+      [SessionStep.SERIAL_NUMBER_EDC]: `🔢 Step 11: Serial Number EDC
+
+Masukkan serial number mesin EDC Anda.
+
+Contoh: K9001234, EDC-123456, SN001234
+`,
+      [SessionStep.ID_CARD_PREVIEW]: `📋 **Step 2: Konfirmasi Data KTP**
+
+Periksa data yang berhasil dibaca dari KTP Anda.
+
+/konfirm - ✅ Ya, data benar
+/ulangi - ❌ Upload ulang KTP`,
+
+      [SessionStep.SIGNATURE_PREVIEW]: `✍️ **Step 15: Konfirmasi Tanda Tangan**
+
+Periksa hasil pemrosesan tanda tangan Anda.
+
+/konfirm - ✅ Ya, gunakan tanda tangan ini  
+/ulangi - ❌ Upload ulang tanda tangan`,
     };
 
     return stepMessages[step] || `📝 Langkah: ${step}`;
@@ -327,6 +358,7 @@ Silakan periksa kembali data Anda sebelum mengirim.`,
       account_holder_name: "Nama Pemilik Rekening",
       bank_name: "Nama Bank",
       account_number: "Nomor Rekening",
+      serial_number_edc: "Serial Number EDC",
     };
 
     let message = `✅ ${fieldNames[field]}: ${value}\n\n`;
@@ -386,11 +418,11 @@ Silakan periksa kembali data Anda sebelum mengirim.`,
 
   // CONFIRMATION MESSAGE
   public generateConfirmationMessage(formData: FormData): string {
-    return `🔍 **Konfirmasi Data KYC**
+    return `🔍 Konfirmasi Data KYC
 
 Silakan periksa kembali data Anda:
 
-**📋 DATA DARI KTP (OCR):**
+📋 DATA DARI KTP:
 👤 Nama Lengkap: ${formData.full_name || "Tidak terdeteksi"}
 🆔 NIK: ${formData.id_card_number || "Tidak terdeteksi"}
 📍 Alamat: ${formData.address || "Tidak terdeteksi"}
@@ -398,40 +430,42 @@ Silakan periksa kembali data Anda:
 💼 Pekerjaan: ${formData.occupation || "Tidak terdeteksi"}
 📮 Kode Pos: ${formData.postal_code || "Tidak terdeteksi"}
 
-**🏪 DATA AGEN:**
+🏪 DATA AGEN:
 🏷️ Nama Agen: ${formData.agent_name}
-👤 Nama Pemilik: ${formData.owner_name}
 🏢 Bidang Usaha: ${formData.business_field}
 
-**📞 DATA PIC:**
+📞 DATA PIC:
 👤 Nama PIC: ${formData.pic_name}
 📱 Telepon PIC: ${formData.pic_phone}
 
-**💰 DATA REKENING:**
+💰 DATA REKENING:
 👤 Nama Pemilik Rekening: ${formData.account_holder_name}
 🏦 Nama Bank: ${formData.bank_name}
 💳 Nomor Rekening: ${formData.account_number}
 🔢 NPWP: ${formData.tax_number || "Tidak diisi"}
 
-**📸 DOKUMEN:**
+📸 DOKUMEN:
 ✅ Foto KTP: Terupload
 ✅ Foto Tanda Tangan: Terupload (background dihapus)
 ✅ Foto Lokasi: ${formData.location_photos?.length || 0} foto
 ✅ Foto Buku Rekening: Terupload
 
-Apakah semua data sudah benar?`;
+Apakah semua data sudah benar?
+  
+/ya - ✅ Ya, daftarkan
+/tidak - ❌ Tidak, ulangi pendaftaran`;
   }
 
   // REGISTRATION MESSAGES
   public generateRegistrationSuccessMessage(formData: FormData): string {
-    return `🎉 **Pendaftaran KYC Berhasil!**
+    return `🎉 Pendaftaran KYC Berhasil!
 
 Data Anda telah berhasil disimpan dan akan diproses oleh tim admin.
 
-📧 **Status:** Draft (Menunggu konfirmasi admin)
-⏰ **Estimasi:** 1-2 hari kerja
+📧 Status: Draft (Menunggu konfirmasi admin)
+⏰ Estimasi: 1-2 hari kerja
 
-📋 **Data yang terdaftar:**
+📋 Data yang terdaftar:
 👤 Nama: ${formData.full_name}
 🏷️ Agen: ${formData.agent_name}
 🏢 Bidang Usaha: ${formData.business_field}
@@ -445,7 +479,7 @@ Terima kasih! 🙏`;
   }
 
   public generateRegistrationErrorMessage(): string {
-    return `❌ **Pendaftaran Gagal**
+    return `❌ Pendaftaran Gagal
 
 Terjadi kesalahan saat menyimpan data. Silakan coba lagi atau hubungi admin jika masalah berlanjut.
 
@@ -456,7 +490,7 @@ Terjadi kesalahan saat menyimpan data. Silakan coba lagi atau hubungi admin jika
   public async generateBankSelectionMessage() {
     const banks = await this.bankService.getAllBanks();
 
-    let message = `🏦 **Pilih Bank Anda**\n\nSilakan pilih dengan mengetik command berikut:\n\n`;
+    let message = `🏦 Pilih Bank Anda\n\nSilakan pilih dengan mengetik command berikut:\n\n`;
 
     banks.forEach((bank: any, index) => {
       const command = bank?.toLowerCase().replace(/\s+/g, "");
@@ -470,7 +504,7 @@ Terjadi kesalahan saat menyimpan data. Silakan coba lagi atau hubungi admin jika
   public async generateBusinessFieldSelectionMessage() {
     const fields = await this.businessFieldService.getAllBusinessFields();
 
-    let message = `🏢 **Pilih Bidang Usaha**\n\nSilakan pilih dengan mengetik command berikut:\n\n`;
+    let message = `🏢 Pilih Bidang Usaha\n\nSilakan pilih dengan mengetik command berikut:\n\n`;
     console.log({fields});
     fields.forEach((field: any, index) => {
       const command = field?.toLowerCase().replace(/\s+/g, "");
@@ -484,7 +518,7 @@ Terjadi kesalahan saat menyimpan data. Silakan coba lagi atau hubungi admin jika
   public async generateProvinceSelectionMessage() {
     const provinces = await this.provinceService.getAllProvinces();
 
-    let message = `🗺️ **Pilih Provinsi**\n\nSilakan pilih dengan mengetik command berikut:\n\n`;
+    let message = `🗺️ Pilih Provinsi\n\nSilakan pilih dengan mengetik command berikut:\n\n`;
 
     provinces.forEach((province) => {
       message += `/${province.code} - ${province.name}\n`;
@@ -496,7 +530,7 @@ Terjadi kesalahan saat menyimpan data. Silakan coba lagi atau hubungi admin jika
   public async generateCitySelectionMessage(provinceCode: string) {
     const cities = await this.provinceService.getCitiesByProvince(provinceCode);
 
-    let message = `🏙️ **Pilih Kabupaten/Kota**\n\nSilakan pilih dengan mengetik command berikut:\n\n`;
+    let message = `🏙️ Pilih Kabupaten/Kota\n\nSilakan pilih dengan mengetik command berikut:\n\n`;
 
     cities.forEach((city) => {
       message += `/${city.code} - ${city.name}\n`;
@@ -510,45 +544,43 @@ Terjadi kesalahan saat menyimpan data. Silakan coba lagi atau hubungi admin jika
     application: KYCApplication,
     photos: KYCPhoto[]
   ): string {
-    return `📋 **Data KYC Anda**
+    return `📋 Data KYC Anda
 
-**Status:** ${this.getStatusText(application.status)}
+Status: ${this.getStatusText(application.status)}
 
-**📋 DATA DARI KTP:**
+📋 DATA DARI KTP:
 👤 Nama: ${application.full_name}
 🆔 NIK: ${application.id_card_number}
 📍 Alamat: ${application.address}
 ⛪ Agama: ${application.religion || "Tidak terdeteksi"}
 💼 Pekerjaan: ${application.occupation || "Tidak terdeteksi"}
 
-**🏪 DATA AGEN:**
+🏪 DATA AGEN:
 🏷️ Nama Agen: ${application.agent_name}
-👤 Nama Pemilik: ${application.owner_name}
 🏢 Bidang Usaha: ${application.business_field}
 
-**📞 DATA PIC:**
+📞 DATA PIC:
 👤 Nama PIC: ${application.pic_name}
 📱 Telepon: ${application.pic_phone}
 
-**💰 DATA REKENING:**
+💰 DATA REKENING:
 👤 Pemilik Rekening: ${application.account_holder_name}
 🏦 Bank: ${application.bank_name}
 💳 Nomor Rekening: ${application.account_number}
 🔢 NPWP: ${application.tax_number || "Tidak diisi"}
 
-**📸 DOKUMEN:** ${photos.length} file terupload
+📸 DOKUMEN: ${photos.length} file terupload
 📅 Tanggal Daftar: ${new Date(application.created_at!).toLocaleDateString(
       "id-ID"
     )}`;
   }
 
-  // UTILITY METHODS
   private getStepNumber(step: SessionStep): number {
     const stepNumbers: {[key in SessionStep]?: number} = {
       [SessionStep.ID_CARD_PHOTO]: 1,
-      [SessionStep.POSTAL_CODE]: 2,
-      [SessionStep.AGENT_NAME]: 3,
-      [SessionStep.OWNER_NAME]: 4,
+      [SessionStep.ID_CARD_PREVIEW]: 2,
+      [SessionStep.POSTAL_CODE]: 3,
+      [SessionStep.AGENT_NAME]: 4,
       [SessionStep.BUSINESS_FIELD]: 5,
       [SessionStep.PIC_NAME]: 6,
       [SessionStep.PIC_PHONE]: 7,
@@ -557,10 +589,11 @@ Terjadi kesalahan saat menyimpan data. Silakan coba lagi atau hubungi admin jika
       [SessionStep.BANK_NAME]: 10,
       [SessionStep.ACCOUNT_NUMBER]: 11,
       [SessionStep.SIGNATURE_PHOTO]: 12,
-      [SessionStep.LOCATION_PHOTOS]: 13,
-      [SessionStep.BANK_BOOK_PHOTO]: 14,
-      [SessionStep.TERMS_CONDITIONS]: 15,
-      [SessionStep.CONFIRMATION]: 16,
+      [SessionStep.SIGNATURE_PREVIEW]: 13,
+      [SessionStep.LOCATION_PHOTOS]: 14,
+      [SessionStep.BANK_BOOK_PHOTO]: 15,
+      [SessionStep.TERMS_CONDITIONS]: 16,
+      [SessionStep.CONFIRMATION]: 17,
     };
 
     return stepNumbers[step] || 0;
@@ -618,12 +651,12 @@ Gunakan command berikut:
     application: KYCApplication,
     pdfUrl: string
   ): string {
-    return `🎉 **KYC Anda Telah Dikonfirmasi!**
+    return `🎉 KYC Anda Telah Dikonfirmasi!
 
 ✅ Status: Confirmed
 📄 Dokumen KYC: [Download PDF](${pdfUrl})
 
-📜 **E-Meterai Digital**
+📜 E-Meterai Digital
 Apakah Anda ingin menambahkan e-meterai digital pada dokumen KYC Anda?
 
 ℹ️ E-meterai memberikan:
@@ -638,7 +671,7 @@ Dokumen Anda tetap sah tanpa e-meterai.`;
   }
 
   public generateEmeteraiSuccessMessage(stampedPdfUrl: string): string {
-    return `✅ **E-Meterai Berhasil Ditambahkan!**
+    return `✅ E-Meterai Berhasil Ditambahkan!
 
 📄 Dokumen dengan e-meterai: [Download PDF](${stampedPdfUrl})
 
@@ -651,66 +684,66 @@ Terima kasih telah menggunakan layanan kami! 🙏`;
   }
 
   public generateTermsConditionsMessage(): string {
-    return `📋 **Syarat dan Ketentuan KYC**
+    return `📋 Syarat dan Ketentuan KYC
 
 Silakan baca dan setujui syarat dan ketentuan berikut:
 
-**1. KEBENARAN DATA**
+1. KEBENARAN DATA
 Saya menjamin bahwa semua data yang saya berikan adalah benar, akurat, dan terkini.
 
-**2. TANGGUNG JAWAB**
+2. TANGGUNG JAWAB
 Saya bertanggung jawab penuh atas kebenaran dan keakuratan semua informasi yang diberikan.
 
-**3. PENGGUNAAN DATA**
+3. PENGGUNAAN DATA
 Data saya akan digunakan untuk:
 - Proses verifikasi KYC
 - Keperluan bisnis dan administrasi
 - Kepatuhan terhadap regulasi yang berlaku
 
-**4. VERIFIKASI DOKUMEN**
+4. VERIFIKASI DOKUMEN
 Perusahaan berhak:
 - Memverifikasi kebenaran dokumen
 - Meminta dokumen tambahan jika diperlukan
 - Melakukan cross-check dengan pihak ketiga
 
-**5. HAK PENOLAKAN**
+5. HAK PENOLAKAN
 Perusahaan berhak menolak aplikasi jika:
 - Data tidak valid atau tidak lengkap
 - Dokumen tidak memenuhi standar
 - Tidak memenuhi kriteria yang ditetapkan
 
-**6. KERAHASIAAN DATA**
+6. KERAHASIAAN DATA
 Data akan disimpan dengan aman dan digunakan sesuai kebijakan privasi perusahaan.
 
-**7. PERUBAHAN KETENTUAN**
+7. PERUBAHAN KETENTUAN
 Syarat dan ketentuan dapat berubah sewaktu-waktu dengan pemberitahuan sebelumnya.
 
-**8. PERSETUJUAN**
+8. PERSETUJUAN
 Dengan melanjutkan, saya menyatakan telah membaca, memahami, dan menyetujui semua syarat dan ketentuan di atas.
 
 Apakah Anda menyetujui syarat dan ketentuan di atas?
 
-**Setuju** - ✅ Ya, saya setuju (/setuju)
-**Tidak Setuju** - ❌ Tidak, saya tidak setuju (/tidaksetuju)`;
+Setuju - ✅ Ya, saya setuju (/setuju)
+Tidak Setuju - ❌ Tidak, saya tidak setuju (/tidaksetuju)`;
   }
 
   public generateContinueRegistrationMessage(nextStep: SessionStep): string {
     const stepNumber = this.getStepNumber(nextStep);
     const stepMessage = this.generateStepMessage(nextStep);
 
-    return `⏩ **Melanjutkan Pendaftaran KYC**
+    return `⏩ Melanjutkan Pendaftaran KYC
 
-📝 **Step ${stepNumber}/15**
+📝 Step ${stepNumber}/15
 
 ${stepMessage}`;
   }
   public generateRegistrationStartMessage(): string {
-    return `📋 **Pendaftaran KYC**
+    return `📋 Pendaftaran KYC
 
 Pilih opsi pendaftaran:
 
-**Mulai Pendaftaran Baru** - 🆕 Mulai dari awal
-**Lanjutkan Sesi Pendaftaran** - ⏩ Lanjutkan yang belum selesai
+Mulai Pendaftaran Baru - 🆕 Mulai dari awal
+Lanjutkan Sesi Pendaftaran - ⏩ Lanjutkan yang belum selesai
 
 /menu - 🏠 Kembali ke menu utama`;
   }
@@ -723,7 +756,7 @@ Pilih opsi pendaftaran:
     const stepNumber = this.getStepNumber(currentStep);
     const completedSteps = this.getCompletedStepsCount(formData);
 
-    return `📍 **Status Pendaftaran**
+    return `📍 Status Pendaftaran
 
 ⏳ Step saat ini: ${stepNumber}/15
 ✅ Step selesai: ${completedSteps}/15
@@ -782,67 +815,67 @@ Progress: ${Math.round((completedSteps / 15) * 100)}%`;
   // Message untuk photo upload guidance
   public generatePhotoUploadGuidance(photoType: SessionStep): string {
     const guidance: {[key in SessionStep]?: string} = {
-      [SessionStep.ID_CARD_PHOTO]: `📸 **Tips Upload Foto KTP:**
+      [SessionStep.ID_CARD_PHOTO]: `📸 Tips Upload Foto KTP:
 
-✅ **Yang Benar:**
+✅ Yang Benar:
 - Foto jelas dan tidak buram
 - Semua teks dapat dibaca
 - Pencahayaan cukup terang
 - Tidak ada bayangan atau silau
 - Posisi KTP lurus dan penuh
 
-❌ **Hindari:**
+❌ Hindari:
 - Foto buram atau gelap
 - Ada bayangan pada KTP
 - Terpotong atau tidak lengkap
 - Resolusi terlalu rendah
 
-💡 **Info:** Sistem OCR akan otomatis membaca nama, NIK, alamat, agama, pekerjaan, dan kode pos dari KTP Anda.`,
+💡 Info: Sistem OCR akan otomatis membaca nama, NIK, alamat, agama, pekerjaan, dan kode pos dari KTP Anda.`,
 
-      [SessionStep.SIGNATURE_PHOTO]: `✍️ **Tips Upload Foto Tanda Tangan:**
+      [SessionStep.SIGNATURE_PHOTO]: `✍️ Tips Upload Foto Tanda Tangan:
 
-✅ **Yang Benar:**
+✅ Yang Benar:
 - Gunakan background putih/terang
 - Tanda tangan kontras dan jelas
 - Tidak ada bayangan
 - Posisi tegak dan centered
 
-❌ **Hindari:**
+❌ Hindari:
 - Background gelap atau ramai
 - Tanda tangan tipis/pudar
 - Ada coretan lain di kertas
 
-💡 **Info:** Sistem akan otomatis menghapus background dan menyesuaikan ukuran untuk dokumen PDF.`,
+💡 Info: Sistem akan otomatis menghapus background dan menyesuaikan ukuran untuk dokumen PDF.`,
 
-      [SessionStep.LOCATION_PHOTOS]: `📍 **Tips Upload Foto Lokasi:**
+      [SessionStep.LOCATION_PHOTOS]: `📍 Tips Upload Foto Lokasi:
 
-📸 **Foto yang diperlukan:**
+📸 Foto yang diperlukan:
 1. Tampak depan toko/warung
 2. Papan nama/spanduk (jika ada)
 3. Tampak dalam ruangan
 4. Tampak samping (opsional)
 
-✅ **Yang Benar:**
+✅ Yang Benar:
 - Foto jelas dan terang
 - Menunjukkan kondisi aktual
 - Tampak profesional dan bersih
 
-💡 **Info:** Upload 1-4 foto, lalu ketik "Lanjut" untuk melanjutkan.`,
+💡 Info: Upload 1-4 foto, lalu ketik "Lanjut" untuk melanjutkan.`,
 
-      [SessionStep.BANK_BOOK_PHOTO]: `📄 **Tips Upload Foto Buku Rekening:**
+      [SessionStep.BANK_BOOK_PHOTO]: `📄 Tips Upload Foto Buku Rekening:
 
-✅ **Yang Benar:**
+✅ Yang Benar:
 - Foto halaman pertama buku tabungan
 - Nama pemilik terlihat jelas
 - Nomor rekening terbaca
 - Pencahayaan yang baik
 
-❌ **Hindari:**
+❌ Hindari:
 - Foto buram atau gelap
 - Informasi tidak lengkap
 - Ada yang tertutup jari/benda lain
 
-💡 **Info:** Pastikan nama dan nomor rekening sesuai dengan data yang sudah diisi.`,
+💡 Info: Pastikan nama dan nomor rekening sesuai dengan data yang sudah diisi.`,
     };
 
     return guidance[photoType] || "";
@@ -850,7 +883,7 @@ Progress: ${Math.round((completedSteps / 15) * 100)}%`;
 
   // Message untuk error recovery
   public generateStepRecoveryMessage(currentStep: SessionStep): string {
-    return `🔄 **Pemulihan Sesi**
+    return `🔄 Pemulihan Sesi
 
 Anda sedang berada di step: ${this.getStepDisplayName(currentStep)}
 
@@ -869,7 +902,7 @@ Silakan lanjutkan dari step ini atau:
     const baseError = this.generateFieldValidationError(field);
 
     if (suggestion) {
-      return `${baseError}\n\n💡 **Saran:** ${suggestion}`;
+      return `${baseError}\n\n💡 Saran: ${suggestion}`;
     }
 
     return baseError;

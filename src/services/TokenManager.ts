@@ -26,18 +26,19 @@ export class TokenManager {
     const cached = await this.cache.get<{token: string; expires: Date}>(
       cacheKey
     );
-
+    console.log({cached});
     if (cached && new Date() < new Date(cached.expires)) {
       return cached.token;
     }
 
     const partner = await this.getPartnerEmeteraiConfig(partnerId);
+    console.log({partner});
     if (!partner.emeterai_client_id) {
       throw new Error("E-meterai not configured for this partner");
     }
 
     const newToken = await this.requestNewToken(partner);
-
+    console.log({newToken});
     const ttl =
       Math.floor((new Date(newToken.expires).getTime() - Date.now()) / 1000) -
       60;
@@ -56,7 +57,7 @@ export class TokenManager {
     if (result.rows.length === 0) {
       throw new Error("Partner not found");
     }
-
+    console.log(result.rows[0], "CLIENT EMATERAI");
     return result.rows[0];
   }
 
