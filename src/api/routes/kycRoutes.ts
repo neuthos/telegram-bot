@@ -1,5 +1,3 @@
-// src/api/routes/kycRoutes.ts - Update dengan routes untuk flow baru
-
 import {Router} from "express";
 import {authMiddleware} from "../middleware/authMiddleware";
 import {kycController} from "../controllers/kycController";
@@ -9,7 +7,6 @@ const router = Router();
 router.post("/process-artajasa", kycController.processStampedForArtajasa);
 router.use(authMiddleware);
 
-// Existing routes
 router.get("/list", kycController.getList);
 
 router.post("/bulk/export-pdf", kycController.bulkExportPdf);
@@ -30,12 +27,10 @@ router.get("/processing-progress", kycController.getProcessingProgress);
 
 router.put("/:id/processed-status", kycController.updateProcessedStatus);
 
-// NEW ROUTES untuk flow baru
 router.get("/:id", kycController.getById);
 router.post("/bulk/export-excel", kycController.bulkExportExcel);
 router.put("/:id/artajasa-review", kycController.updateArtajasaReview);
 router.put("/:id/emeterai-consent", kycController.updateEmeteraiConsent);
 router.post("/bulk/emeterai-status", kycController.getBulkEmeteraiStatus);
 
-// FOR AUTOMATION
 export default router;

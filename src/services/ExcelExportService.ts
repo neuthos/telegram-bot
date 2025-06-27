@@ -11,9 +11,7 @@ export class ExcelExportService {
   public async exportToExcel(applications: KYCApplication[]): Promise<string> {
     try {
       const workbook = XLSX.utils.book_new();
-
       const worksheet = await this.createWorksheet(applications);
-
       XLSX.utils.book_append_sheet(workbook, worksheet, "KYC Data");
 
       const excelBuffer = XLSX.write(workbook, {
@@ -21,7 +19,9 @@ export class ExcelExportService {
         bookType: "xlsx",
       });
 
-      const fileName = `kyc_export_${Date.now()}.xlsx`;
+      const exportDate = new Date().toISOString().split("T")[0];
+      const fileName = `confirmed_agent_${exportDate}.xlsx`;
+
       const fileUrl = await this.cdnService.uploadFile(
         excelBuffer,
         fileName,
@@ -44,14 +44,10 @@ export class ExcelExportService {
   private async createWorksheet(applications: KYCApplication[]) {
     const worksheet = XLSX.utils.aoa_to_sheet([]);
 
-    const header1 = [
+    const header = [
       "NO",
       "TID",
-      "",
       "MID",
-      "",
-      "",
-      "",
       "Tgl FPA",
       "NAMA CORPOORATE AGEN",
       "NAMA AGEN",
@@ -72,125 +68,71 @@ export class ExcelExportService {
       "MCC",
       "JAM OPERASIONAL OUTLET",
       "FITUR",
-      "URL",
+      "URL PDF",
     ];
 
-    const header2 = [
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "(Debit/CC/GPN)",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "MINI ATM (Transfer, Cek Saldo)",
-      "",
-    ];
+    XLSX.utils.sheet_add_aoa(worksheet, [header], {origin: "A1"});
 
-    XLSX.utils.sheet_add_aoa(worksheet, [header1], {origin: "A1"});
-    XLSX.utils.sheet_add_aoa(worksheet, [header2], {origin: "A2"});
-
+    // Add data rows
     for (let index = 0; index < applications.length; index++) {
       const app = applications[index];
       const rowData = await this.generateRowData(app, index + 1);
-      XLSX.utils.sheet_add_aoa(worksheet, [rowData], {origin: `A${index + 3}`});
+      XLSX.utils.sheet_add_aoa(worksheet, [rowData], {origin: `A${index + 2}`});
     }
 
     worksheet["!cols"] = [
-      {wch: 5},
-      {wch: 12},
-      {wch: 12},
-      {wch: 12},
-      {wch: 25},
-      {wch: 20},
-      {wch: 40},
-      {wch: 15},
-      {wch: 10},
-      {wch: 12},
-      {wch: 15},
-      {wch: 20},
-      {wch: 22},
-      {wch: 17},
-      {wch: 15},
-      {wch: 15},
-      {wch: 15},
-      {wch: 25},
-      {wch: 11},
-      {wch: 16},
-      {wch: 5},
-      {wch: 15},
-      {wch: 20},
-      {wch: 17},
-      {wch: 5},
-      {wch: 15},
-      {wch: 26},
-      {wch: 10},
+      {wch: 5}, // NO
+      {wch: 12}, // TID
+      {wch: 12}, // MID
+      {wch: 12}, // Tgl FPA
+      {wch: 25}, // NAMA CORPORATE AGEN
+      {wch: 20}, // NAMA AGEN
+      {wch: 40}, // ALAMAT
+      {wch: 15}, // KOTA
+      {wch: 10}, // PROVINSI
+      {wch: 12}, // KODE DATI 2
+      {wch: 15}, // NOMOR TELEPON
+      {wch: 20}, // NAMA PEMILIK AGEN
+      {wch: 22}, // NAMA PEMILIK REKENING
+      {wch: 17}, // KODE BANK
+      {wch: 15}, // NAMA BANK
+      {wch: 15}, // NOMOR REKENING
+      {wch: 15}, // JENIS KARTU ATM
+      {wch: 25}, // BIDANG USAHA
+      {wch: 11}, // Tipe EDC
+      {wch: 16}, // Serial Number EDC
+      {wch: 5}, // MCC
+      {wch: 20}, // JAM OPERASIONAL
+      {wch: 15}, // FITUR
+      {wch: 50}, // URL PDF
     ];
 
-    worksheet["!merges"] = [
-      {s: {c: 0, r: 0}, e: {c: 0, r: 1}},
+    // Add header styling with background color
+    const headerRange = XLSX.utils.decode_range("A1:X1");
+    for (let col = headerRange.s.c; col <= headerRange.e.c; col++) {
+      const cellAddress = XLSX.utils.encode_cell({r: 0, c: col});
+      if (!worksheet[cellAddress]) continue;
 
-      {s: {c: 1, r: 0}, e: {c: 2, r: 1}},
-
-      {s: {c: 3, r: 0}, e: {c: 6, r: 1}},
-
-      {s: {c: 7, r: 0}, e: {c: 7, r: 1}},
-
-      {s: {c: 8, r: 0}, e: {c: 8, r: 1}},
-
-      {s: {c: 9, r: 0}, e: {c: 9, r: 1}},
-
-      {s: {c: 10, r: 0}, e: {c: 10, r: 1}},
-
-      {s: {c: 11, r: 0}, e: {c: 11, r: 1}},
-
-      {s: {c: 12, r: 0}, e: {c: 12, r: 1}},
-
-      {s: {c: 13, r: 0}, e: {c: 13, r: 1}},
-
-      {s: {c: 14, r: 0}, e: {c: 14, r: 1}},
-
-      {s: {c: 15, r: 0}, e: {c: 15, r: 1}},
-
-      {s: {c: 16, r: 0}, e: {c: 16, r: 1}},
-
-      {s: {c: 17, r: 0}, e: {c: 17, r: 1}},
-
-      {s: {c: 18, r: 0}, e: {c: 18, r: 1}},
-
-      {s: {c: 19, r: 0}, e: {c: 19, r: 1}},
-
-      {s: {c: 21, r: 0}, e: {c: 21, r: 1}},
-
-      {s: {c: 22, r: 0}, e: {c: 22, r: 1}},
-
-      {s: {c: 23, r: 0}, e: {c: 23, r: 1}},
-
-      {s: {c: 24, r: 0}, e: {c: 24, r: 1}},
-
-      {s: {c: 25, r: 0}, e: {c: 25, r: 1}},
-
-      {s: {c: 27, r: 0}, e: {c: 27, r: 1}},
-    ];
+      worksheet[cellAddress].s = {
+        fill: {
+          fgColor: {rgb: "4472C4"},
+        },
+        font: {
+          bold: true,
+          color: {rgb: "FFFFFF"},
+        },
+        alignment: {
+          horizontal: "center",
+          vertical: "center",
+        },
+        border: {
+          top: {style: "thin", color: {rgb: "000000"}},
+          bottom: {style: "thin", color: {rgb: "000000"}},
+          left: {style: "thin", color: {rgb: "000000"}},
+          right: {style: "thin", color: {rgb: "000000"}},
+        },
+      };
+    }
 
     return worksheet;
   }
@@ -208,11 +150,7 @@ export class ExcelExportService {
     return [
       index,
       application.tid || "",
-      "",
       application.mid || "",
-      "",
-      "",
-      "",
       "2025-05-23",
       "PT. EKOSISTEM PASAR DIGITAL",
       application.agent_name,
@@ -229,11 +167,11 @@ export class ExcelExportService {
       "Debit/CC/GPN",
       application.business_field,
       "Centerm - K9",
-      application.serial_number_edc || "",
+      "",
       application.mcc || "",
       "07:00 - 22:00",
       "All Fitur",
-      application.google_drive_url || "", // Add Google Drive URL
+      application.stamped_pdf_url || application.pdf_url || "",
     ];
   }
 
@@ -258,14 +196,19 @@ export class ExcelExportService {
 
   public async exportToExcelBuffer(
     applications: KYCApplication[]
-  ): Promise<Buffer> {
+  ): Promise<{buffer: Buffer; fileName: string}> {
     const workbook = XLSX.utils.book_new();
     const worksheet = await this.createWorksheet(applications);
     XLSX.utils.book_append_sheet(workbook, worksheet, "KYC Data");
 
-    return XLSX.write(workbook, {
+    const buffer = XLSX.write(workbook, {
       type: "buffer",
       bookType: "xlsx",
     }) as Buffer;
+
+    const exportDate = new Date().toISOString().split("T")[0];
+    const fileName = `confirmed_agent_${exportDate}.xlsx`;
+
+    return {buffer, fileName};
   }
 }

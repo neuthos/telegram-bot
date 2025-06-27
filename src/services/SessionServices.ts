@@ -330,7 +330,7 @@ export class SessionService {
 
     if (!formData.bank_name) return SessionStep.BANK_NAME;
     if (!formData.account_number) return SessionStep.ACCOUNT_NUMBER;
-    if (!formData.serial_number_edc) return SessionStep.SERIAL_NUMBER_EDC;
+    // if (!formData.serial_number_edc) return SessionStep.SERIAL_NUMBER_EDC;
     if (!formData.signature_photo) return SessionStep.SIGNATURE_PHOTO;
     if (!formData.signature_confirmed) return SessionStep.SIGNATURE_PREVIEW;
     if (!formData.location_photos || formData.location_photos.length === 0)

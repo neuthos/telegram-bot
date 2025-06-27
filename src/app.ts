@@ -25,11 +25,6 @@ app.get("/health", (req, res) => {
     status: "OK",
     timestamp: new Date().toISOString(),
     version: "2.0.0",
-    features: {
-      ocr_enabled: process.env.ENABLE_OCR === "true",
-      signature_processing: process.env.ENABLE_SIGNATURE_PROCESSING === "true",
-      compressed_photos: true,
-    },
   });
 });
 
@@ -91,17 +86,6 @@ async function startServer() {
       logger.info(`Server running on port ${PORT}`);
       console.log(
         `🚀 KYC Bot Server v2.0.0 running on http://localhost:${PORT}`
-      );
-      console.log("📋 Features enabled:");
-      console.log(
-        `   • OCR Processing: ${
-          process.env.ENABLE_OCR === "true" ? "✅" : "❌"
-        }`
-      );
-      console.log(
-        `   • Signature Processing: ${
-          process.env.ENABLE_SIGNATURE_PROCESSING === "true" ? "✅" : "❌"
-        }`
       );
     });
   } catch (error) {

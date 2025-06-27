@@ -242,6 +242,79 @@ export class MessageHandler {
           partnerId
         );
         break;
+      case "/konfirm":
+        const activeSession = await this.sessionService.getActiveSession(
+          partnerId,
+          telegramId
+        );
+        if (!activeSession) {
+          await bot.sendMessage(
+            telegramId,
+            this.messages.generateNoActiveSessionMessage()
+          );
+          return;
+        }
+
+        if (activeSession.current_step === SessionStep.ID_CARD_PREVIEW) {
+          await this.handleIdCardPreview(
+            bot,
+            telegramId,
+            "/konfirm",
+            activeSession
+          );
+        } else if (
+          activeSession.current_step === SessionStep.SIGNATURE_PREVIEW
+        ) {
+          await this.handleSignaturePreview(
+            bot,
+            telegramId,
+            "/konfirm",
+            activeSession
+          );
+        } else {
+          await bot.sendMessage(
+            telegramId,
+            "❌ Command /konfirm hanya bisa digunakan pada step preview."
+          );
+        }
+        break;
+
+      case "/ulangi":
+        const retrySession = await this.sessionService.getActiveSession(
+          partnerId,
+          telegramId
+        );
+        if (!retrySession) {
+          await bot.sendMessage(
+            telegramId,
+            this.messages.generateNoActiveSessionMessage()
+          );
+          return;
+        }
+
+        if (retrySession.current_step === SessionStep.ID_CARD_PREVIEW) {
+          await this.handleIdCardPreview(
+            bot,
+            telegramId,
+            "/ulangi",
+            retrySession
+          );
+        } else if (
+          retrySession.current_step === SessionStep.SIGNATURE_PREVIEW
+        ) {
+          await this.handleSignaturePreview(
+            bot,
+            telegramId,
+            "/ulangi",
+            retrySession
+          );
+        } else {
+          await bot.sendMessage(
+            telegramId,
+            "❌ Command /ulangi hanya bisa digunakan pada step preview."
+          );
+        }
+        break;
       default:
         await this.handleSelectionCommand(
           bot,
@@ -300,6 +373,19 @@ export class MessageHandler {
     telegramId: number,
     nextStep: SessionStep
   ): Promise<void> {
+    if (nextStep === SessionStep.ID_CARD_PHOTO && process.env.KTP_EXAMPLE_URL) {
+      await bot.sendPhoto(telegramId, process.env.KTP_EXAMPLE_URL, {
+        caption: "📋 Contoh foto KTP yang baik:",
+      });
+    } else if (
+      nextStep === SessionStep.SIGNATURE_PHOTO &&
+      process.env.SIGNATURE_EXAMPLE_URL
+    ) {
+      await bot.sendPhoto(telegramId, process.env.SIGNATURE_EXAMPLE_URL, {
+        caption: "📋 Contoh foto tanda tangan yang baik:",
+      });
+    }
+
     const message = this.messages.generateStepMessage(nextStep);
 
     if (nextStep === SessionStep.BUSINESS_FIELD) {
@@ -844,23 +930,59 @@ export class MessageHandler {
   private async handleKTPPhotoUpload(
     bot: TelegramBot,
     telegramId: number,
-    fileUrl: string,
+    photoId: string, // Change to photoId instead of fileUrl
     session: UserSession
   ): Promise<void> {
     await bot.sendMessage(telegramId, "🔍 Memproses KTP dengan OCR...");
 
     try {
-      const ocrResult = await this.ocrService.processKTPImage(fileUrl);
+      // Download original file buffer
+      const {buffer, mimeType, fileName} =
+        await this.fileService.downloadOriginalFile(bot, photoId);
 
-      if (ocrResult.success && ocrResult.data) {
+      // Process with OCR using file buffer
+      const ocrResult = await this.ocrService.processKTPFile(
+        buffer,
+        fileName,
+        mimeType
+      );
+
+      if (!ocrResult.success) {
+        await bot.sendMessage(
+          telegramId,
+          `❌ ${ocrResult.message}\n\n` +
+            `📸 Silakan upload ulang foto KTP dengan kualitas yang lebih baik:\n` +
+            `• Pastikan foto jelas dan tidak buram\n` +
+            `• Semua teks harus terbaca\n` +
+            `• Pencahayaan yang cukup\n` +
+            `• Tidak ada bayangan atau pantulan`
+        );
+        return;
+      }
+
+      if (ocrResult.data) {
+        const provinceCode = ocrResult.data.nik
+          ? ocrResult.data.nik.substring(0, 2)
+          : "";
+
+        const uploadResult = await this.fileService.downloadAndUploadPhoto(
+          bot,
+          photoId,
+          telegramId,
+          "id_card"
+        );
+
         const formData = {
           ...session.form_data,
-          id_card_photo: fileUrl,
-          full_name: ocrResult.data.full_name,
-          address: ocrResult.data.address,
-          id_card_number: ocrResult.data.id_card_number,
-          religion: ocrResult.data.religion,
-          occupation: ocrResult.data.occupation,
+          id_card_photo: uploadResult.fileUrl, // Store CDN URL for later use
+          full_name: ocrResult.data.nama,
+          address: ocrResult.data.alamat,
+          id_card_number: ocrResult.data.nik,
+          religion: ocrResult.data.agama,
+          occupation: ocrResult.data.pekerjaan,
+          province_name: ocrResult.data.provinsi,
+          province_code: provinceCode,
+          city_name: ocrResult.data.kota,
         };
 
         const nextStep = await this.sessionService.getNextStep(formData);
@@ -871,25 +993,22 @@ export class MessageHandler {
           current_step: nextStep,
         });
 
+        // Show preview
         await bot.sendMessage(
           telegramId,
-          `✅ **KTP berhasil diproses!**\n\n` +
-            `📋 **Data yang terdeteksi:**\n` +
-            `👤 Nama: ${ocrResult.data.full_name}\n` +
-            `🆔 NIK: ${ocrResult.data.id_card_number}\n` +
-            `📍 Alamat: ${ocrResult.data.address}\n` +
-            `⛪ Agama: ${ocrResult.data.religion || "Tidak terdeteksi"}\n` +
+          `✅ KTP berhasil diproses!\n\n` +
+            `📋 Data yang terdeteksi:\n` +
+            `👤 Nama: ${ocrResult.data.nama}\n` +
+            `🆔 NIK: ${ocrResult.data.nik}\n` +
+            `📍 Alamat: ${ocrResult.data.alamat}\n` +
+            `🏙️ Provinsi: ${ocrResult.data.provinsi}\n` +
+            `🏛️ Kota: ${ocrResult.data.kota}\n` +
             `💼 Pekerjaan: ${
-              ocrResult.data.occupation || "Tidak terdeteksi"
+              ocrResult.data.pekerjaan || "Tidak terdeteksi"
             }\n\n` +
             `Apakah data sudah benar?\n\n` +
             `/konfirm - ✅ Ya, data benar\n` +
             `/ulangi - ❌ Upload ulang KTP`
-        );
-      } else {
-        await bot.sendMessage(
-          telegramId,
-          "❌ Gagal memproses KTP. Pastikan foto KTP jelas dan coba lagi."
         );
       }
     } catch (error) {
@@ -904,7 +1023,7 @@ export class MessageHandler {
   private async handleSignaturePhotoUpload(
     bot: TelegramBot,
     telegramId: number,
-    fileUrl: string,
+    fileId: string,
     session: UserSession,
     partnerId: number
   ): Promise<void> {
@@ -914,14 +1033,27 @@ export class MessageHandler {
     );
 
     try {
-      const signatureResult = await this.signatureService.processSignatureImage(
-        fileUrl
+      const {buffer, mimeType, fileName} =
+        await this.fileService.downloadOriginalFile(bot, fileId);
+
+      const originalUpload = await this.fileService.uploadOriginalFile(
+        buffer,
+        `signature_original_${Date.now()}.jpg`,
+        mimeType
+      );
+
+      // Process signature with original buffer
+      const signatureResult = await this.signatureService.processSignatureFile(
+        buffer,
+        fileName,
+        mimeType
       );
 
       if (signatureResult.success && signatureResult.data) {
         const formData = {
           ...session.form_data,
           signature_photo: signatureResult.data.processed_image_url,
+          signature_original: originalUpload.fileUrl, // Store original for reference
         };
 
         const nextStep = await this.sessionService.getNextStep(formData);
@@ -929,16 +1061,15 @@ export class MessageHandler {
         await this.sessionService.createOrUpdateSession({
           ...session,
           form_data: formData,
-          current_step: nextStep, // akan ke SIGNATURE_PREVIEW
+          current_step: nextStep,
         });
 
-        // Kirim preview signature
         await bot.sendPhoto(
           telegramId,
           signatureResult.data.processed_image_url,
           {
             caption:
-              `✅ **Tanda tangan berhasil diproses!**\n\n` +
+              `✅ Tanda tangan berhasil diproses!\n\n` +
               `📐 Ukuran: ${signatureResult.data.width}x${signatureResult.data.height}px\n` +
               `Background telah dihapus dan siap digunakan.\n\n` +
               `Apakah hasil sudah sesuai?\n\n` +
@@ -949,7 +1080,7 @@ export class MessageHandler {
       } else {
         await bot.sendMessage(
           telegramId,
-          "❌ Gagal memproses tanda tangan. Pastikan foto tanda tangan jelas dan coba lagi."
+          `❌ ${signatureResult.message}\n\nSilakan coba lagi dengan foto yang lebih jelas.`
         );
       }
     } catch (error) {
@@ -1047,17 +1178,20 @@ export class MessageHandler {
 
       // Handle specific photo types - FLOW BARU
       if (session.current_step === SessionStep.ID_CARD_PHOTO) {
+        const originalPhoto = msg.photo[msg.photo.length - 1];
         await this.handleKTPPhotoUpload(
           bot,
           telegramId,
-          uploadResult.fileUrl,
+          originalPhoto.file_id,
           session
         );
       } else if (session.current_step === SessionStep.SIGNATURE_PHOTO) {
+        const originalPhoto = msg.photo[msg.photo.length - 1];
+
         await this.handleSignaturePhotoUpload(
           bot,
           telegramId,
-          uploadResult.fileUrl,
+          originalPhoto.file_id,
           session,
           partnerId
         );
@@ -1232,6 +1366,12 @@ export class MessageHandler {
           form_data: {},
         });
 
+        if (process.env.KTP_EXAMPLE_URL) {
+          await bot.sendPhoto(telegramId, process.env.KTP_EXAMPLE_URL, {
+            caption: "📋 Contoh foto KTP yang baik:",
+          });
+        }
+
         await bot.sendMessage(
           telegramId,
           this.messages.generateStepMessage(SessionStep.ID_CARD_PHOTO)
@@ -1256,9 +1396,15 @@ export class MessageHandler {
     await this.sessionService.createOrUpdateSession({
       partner_id: partnerId,
       telegram_id: telegramId,
-      current_step: SessionStep.AGENT_NAME,
+      current_step: SessionStep.ID_CARD_PHOTO,
       form_data: {},
     });
+
+    if (process.env.KTP_EXAMPLE_URL) {
+      await bot.sendPhoto(telegramId, process.env.KTP_EXAMPLE_URL, {
+        caption: "📋 Contoh foto KTP yang baik:",
+      });
+    }
 
     await bot.sendMessage(
       telegramId,
@@ -1763,6 +1909,7 @@ export class MessageHandler {
         this.messages.generateRegistrationSuccessMessage(session.form_data)
       );
     } catch (error) {
+      console.log(error);
       this.logger.error("Error processing registration:", {telegramId, error});
       await bot.sendMessage(
         telegramId,
@@ -1793,8 +1940,8 @@ export class MessageHandler {
       let message = this.messages.generateViewDataMessage(application, photos);
 
       if (application.status === "rejected") {
-        message += `\n\n❌ **STATUS DITOLAK**`;
-        message += `\n📝 **Alasan**: ${application.remark}`;
+        message += `\n\n❌ STATUS DITOLAK`;
+        message += `\n📝 Alasan: ${application.remark}`;
         message += `\n\n💡 Anda dapat mendaftar ulang dengan /daftar`;
       }
 

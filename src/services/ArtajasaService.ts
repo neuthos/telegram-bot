@@ -17,7 +17,6 @@ export class ArtajasaService {
     folderId?: string;
   }> {
     try {
-      // 1. Get all confirmed and stamped applications
       const applications =
         await this.sessionService.getAllConfirmedAndStamped();
 
@@ -29,7 +28,6 @@ export class ArtajasaService {
         `Processing ${applications.length} stamped applications`
       );
 
-      // 2. Create or get today's folder
       const dateFolder = this.googleDriveService.getTodayFolderName();
       const parentFolderId = process.env.GOOGLE_DRIVE_PARENT_FOLDER_ID;
       const folderId = await this.googleDriveService.createDateFolder(
@@ -37,7 +35,6 @@ export class ArtajasaService {
         parentFolderId
       );
 
-      // 3. Upload PDFs to Google Drive and collect URLs
       const applicationIds: number[] = [];
       for (const app of applications) {
         try {
@@ -49,9 +46,8 @@ export class ArtajasaService {
               folderId
             );
 
-            // Update application with Google Drive URL
             await this.sessionService.updateGoogleDriveUrl(app.id!, driveUrl);
-            app.google_drive_url = driveUrl; // Update for Excel export
+            app.google_drive_url = driveUrl;
             applicationIds.push(app.id!);
           }
         } catch (error) {
@@ -62,20 +58,17 @@ export class ArtajasaService {
         }
       }
 
-      // 4. Generate Excel with Google Drive URLs
-      const excelBuffer = await this.excelExportService.exportToExcelBuffer(
-        applications as KYCApplication[]
-      );
+      const {buffer: excelBuffer, fileName: excelFileName} =
+        await this.excelExportService.exportToExcelBuffer(
+          applications as KYCApplication[]
+        );
 
-      // 5. Upload Excel to Google Drive
-      const excelFileName = `KYC_Export_${dateFolder}.xlsx`;
       const excelDriveUrl = await this.googleDriveService.uploadExcel(
         excelBuffer,
         excelFileName,
         folderId
       );
 
-      // 6. Mark applications as reviewed by Artajasa
       await this.sessionService.markAsReviewedByArtajasa(applicationIds);
 
       this.logger.info("Artajasa processing completed", {

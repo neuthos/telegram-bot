@@ -6,8 +6,7 @@ export class SignatureService {
   private signatureApiUrl: string;
 
   constructor() {
-    this.signatureApiUrl =
-      process.env.SIGNATURE_API_URL || "http://localhost:5000";
+    this.signatureApiUrl = process.env.OCR_API_URL || "http://localhost:8000";
   }
 
   public async processSignatureImage(
@@ -73,9 +72,10 @@ export class SignatureService {
   ): Promise<SignatureProcessResponse> {
     try {
       this.logger.info("Processing signature file", {fileName, mimeType});
+
       const formData = new FormData();
       const blob = new Blob([fileBuffer], {type: mimeType});
-      formData.append("image", blob, fileName);
+      formData.append("file", blob, fileName);
 
       const response = await fetch(
         `${this.signatureApiUrl}/extract-signature`,
@@ -86,32 +86,24 @@ export class SignatureService {
       );
 
       if (!response.ok) {
-        throw new Error(
-          `Signature API error: ${response.status} ${response.statusText}`
-        );
+        throw new Error(`Signature API error: ${response.status}`);
       }
 
       const result = await response.json();
-
-      this.logger.info("Signature file processing completed", {
-        success: result.success,
-        hasProcessedImage: !!result.file_url,
-      });
 
       return {
         success: result.success,
         data: result.success
           ? {
-              processed_image_url: result.file_url,
+              processed_image_url: result.signature_url,
               width: result.dimensions?.width || 200,
               height: result.dimensions?.height || 60,
             }
           : undefined,
-        message: result.message || result.error,
+        message: result.message,
       };
     } catch (error) {
-      this.logger.error("Signature file processing failed", {error, fileName});
-
+      this.logger.error("Signature processing failed", {error, fileName});
       return {
         success: false,
         message: `Processing failed: ${
@@ -122,7 +114,6 @@ export class SignatureService {
   }
 
   public validateSignatureImage(imageUrl: string): boolean {
-    // Basic validation
     if (!imageUrl) return false;
     if (!imageUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i)) return false;
 
@@ -130,7 +121,6 @@ export class SignatureService {
   }
 
   public validateSignatureFile(fileName: string, mimeType: string): boolean {
-    // Validate file type
     const allowedTypes = [
       "image/jpeg",
       "image/jpg",
@@ -147,21 +137,6 @@ export class SignatureService {
     return {
       width: 200,
       height: 60,
-    };
-  }
-
-  private getDummySignatureData(originalUrl: string): SignatureProcessResponse {
-    // Fallback dummy data
-    const processedUrl = `${originalUrl}?processed=true&bg_removed=true&w=200&h=60`;
-
-    return {
-      success: true,
-      data: {
-        processed_image_url: processedUrl,
-        width: 200,
-        height: 60,
-      },
-      message: "Signature processing completed (background removed)",
     };
   }
 }

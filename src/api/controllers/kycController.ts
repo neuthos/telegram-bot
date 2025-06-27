@@ -1,4 +1,3 @@
-// src/api/controllers/kycController.ts
 import {Request, Response} from "express";
 import {ApiResponse, AuthRequest} from "../middleware/authMiddleware";
 import {SessionService} from "../../services/SessionServices";
@@ -46,7 +45,6 @@ export class KYCController {
     }
   };
 
-  // 1. Export PDF hanya untuk yang sudah confirmed
   public exportPdf = async (
     req: AuthRequest,
     res: Response<ApiResponse>
@@ -99,7 +97,6 @@ export class KYCController {
     }
   };
 
-  // 2. Bulk Export PDF
   public bulkExportPdf = async (
     req: Request,
     res: Response<ApiResponse>
@@ -134,7 +131,6 @@ export class KYCController {
             continue;
           }
 
-          // Skip jika PDF sudah ada
           if (application.pdf_url) {
             results.push({
               id,
@@ -180,7 +176,6 @@ export class KYCController {
     }
   };
 
-  // 3. Confirm Applications
   public confirmApplication = async (
     req: AuthRequest,
     res: Response<ApiResponse>
@@ -203,7 +198,8 @@ export class KYCController {
       const partnerName = partnerResult.rows[0]?.name || "Partner";
 
       const application = await this.sessionService.getKYCApplicationById(
-        parseInt(id)
+        parseInt(id),
+        req.partnerId
       );
 
       if (!application) {
@@ -248,7 +244,8 @@ export class KYCController {
         {
           pdfUrl,
           application: updatedApplication,
-        }
+        },
+        req.partnerId as number
       );
 
       res.json({
@@ -270,7 +267,7 @@ export class KYCController {
   };
 
   public bulkConfirmApplications = async (
-    req: Request,
+    req: AuthRequest,
     res: Response<ApiResponse>
   ): Promise<void> => {
     try {
@@ -311,7 +308,6 @@ export class KYCController {
             continue;
           }
 
-          // Update status dengan admin info
           await this.sessionService.updateApplicationStatusWithAdmin(
             id,
             "confirmed",
@@ -320,7 +316,6 @@ export class KYCController {
             partner_name
           );
 
-          // Generate PDF
           const photos = await this.sessionService.getApplicationPhotos(id);
           const updatedApplication =
             await this.sessionService.getKYCApplicationById(id);
@@ -330,7 +325,6 @@ export class KYCController {
           );
           await this.sessionService.updateApplicationPdfUrl(id, pdfUrl);
 
-          // Send Telegram notification
           try {
             await this.sendTelegramNotification(
               application.telegram_id,
@@ -338,14 +332,14 @@ export class KYCController {
               {
                 pdfUrl,
                 application: updatedApplication,
-              }
+              },
+              req.partnerId as number
             );
           } catch (telegramError) {
             this.logger.error(
               `Telegram notification failed for ID ${id}:`,
               telegramError
             );
-            // Don't fail the whole process for telegram errors
           }
 
           results.push({
@@ -384,7 +378,7 @@ export class KYCController {
   };
 
   public rejectApplication = async (
-    req: Request,
+    req: AuthRequest,
     res: Response<ApiResponse>
   ): Promise<void> => {
     try {
@@ -444,14 +438,14 @@ export class KYCController {
         partner_name
       );
 
-      // Send Telegram notification
       try {
         await this.sendTelegramNotification(
           application.telegram_id,
           "rejected",
           {
             remark: remark.trim(),
-          }
+          },
+          req.partnerId as number
         );
       } catch (telegramError) {
         console.error("Failed to send Telegram notification:", telegramError);
@@ -481,9 +475,8 @@ export class KYCController {
     }
   };
 
-  // 6. Bulk Reject Applications
   public bulkRejectApplications = async (
-    req: Request,
+    req: AuthRequest,
     res: Response<ApiResponse>
   ): Promise<void> => {
     try {
@@ -535,7 +528,6 @@ export class KYCController {
             continue;
           }
 
-          // Reject dengan admin info
           await this.sessionService.rejectApplication(
             id,
             remark.trim(),
@@ -544,21 +536,20 @@ export class KYCController {
             partner_name
           );
 
-          // Send Telegram notification
           try {
             await this.sendTelegramNotification(
               application.telegram_id,
               "rejected",
               {
                 remark: remark.trim(),
-              }
+              },
+              req.partnerId as number
             );
           } catch (telegramError) {
             this.logger.error(
               `Telegram notification failed for ID ${id}:`,
               telegramError
             );
-            // Don't fail the whole process for telegram errors
           }
 
           results.push({
@@ -794,7 +785,6 @@ export class KYCController {
             continue;
           }
 
-          // Process stamping in background (non-blocking)
           this.processStampingAsync(id, stamped_by, partnerId);
 
           results.push({
@@ -1021,14 +1011,30 @@ export class KYCController {
   private async sendTelegramNotification(
     telegramId: number,
     type: "confirmed" | "rejected",
-    data: any
+    data: any,
+    partnerId: number
   ): Promise<void> {
     try {
-      console.log("Sending Telegram notification:", {telegramId, type});
+      console.log("Sending Telegram notification:", {
+        telegramId,
+        type,
+        partnerId,
+      });
 
-      const bot = new TelegramBot(process.env.BOT_TOKEN!, {
+      const partnerResult = await this.sessionService.db.query(
+        "SELECT bot_token FROM partners WHERE id = $1",
+        [partnerId]
+      );
+
+      if (partnerResult.rows.length === 0) {
+        throw new Error(`Partner ${partnerId} not found`);
+      }
+
+      const botToken = partnerResult.rows[0].bot_token;
+      const bot = new TelegramBot(botToken, {
         polling: false,
       });
+
       const messageTemplates = new MessageTemplates();
 
       if (type === "confirmed") {
@@ -1054,6 +1060,7 @@ Anda dapat mendaftar ulang dengan data yang benar menggunakan /daftar`;
       this.logger.error("Error sending Telegram notification:", {
         telegramId,
         type,
+        partnerId,
         error: error.message,
         stack: error.stack,
       });
@@ -1157,10 +1164,6 @@ Anda dapat mendaftar ulang dengan data yang benar menggunakan /daftar`;
       });
     }
   };
-
-  // src/api/controllers/kycController.ts - Complete controller with new methods
-
-  // Tambahkan methods yang missing:
 
   public updateArtajasaReview = async (
     req: Request,

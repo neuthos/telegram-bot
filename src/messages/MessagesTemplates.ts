@@ -148,7 +148,7 @@ Upload foto KTP Anda untuk proses OCR otomatis.
 - Tidak ada bayangan atau pantulan
 - Format foto: JPG, JPEG, PNG
 
-Sistem akan otomatis membaca dan mengisi data: Nama, NIK, Alamat, Agama, Pekerjaan, dan Kode Pos.`,
+Sistem akan otomatis membaca: NIK, Nama, Alamat, Provinsi, Kota, Agama, Pekerjaan.`,
 
       [SessionStep.POSTAL_CODE]: `📮 Step 1.2: Kode Pos
 
@@ -218,13 +218,18 @@ Contoh: 1234567890, 068901012420509`,
 
 Upload foto tanda tangan Anda.
 
+📋 PENTING - Crop foto agar:
+- Background PUTIH PENUH (tidak ada objek lain)
+- Hanya tanda tangan yang terlihat
+- Foto terpotong rapi di sekitar tanda tangan
+
 📋 Tips untuk foto tanda tangan:
-- Gunakan background putih/terang
+- Gunakan kertas putih bersih
 - Tanda tangan jelas dan kontras
 - Tidak ada bayangan
 - Format: JPG, JPEG, PNG
 
-Sistem akan otomatis menghapus background dan menyesuaikan ukuran untuk dokumen.`,
+Sistem akan otomatis menghapus background dan menyesuaikan ukuran.`,
 
       [SessionStep.LOCATION_PHOTOS]: `📸 Step 12: Upload Foto Lokasi
 
@@ -426,7 +431,6 @@ Silakan periksa kembali data Anda:
 👤 Nama Lengkap: ${formData.full_name || "Tidak terdeteksi"}
 🆔 NIK: ${formData.id_card_number || "Tidak terdeteksi"}
 📍 Alamat: ${formData.address || "Tidak terdeteksi"}
-⛪ Agama: ${formData.religion || "Tidak terdeteksi"}
 💼 Pekerjaan: ${formData.occupation || "Tidak terdeteksi"}
 📮 Kode Pos: ${formData.postal_code || "Tidak terdeteksi"}
 
@@ -552,7 +556,6 @@ Status: ${this.getStatusText(application.status)}
 👤 Nama: ${application.full_name}
 🆔 NIK: ${application.id_card_number}
 📍 Alamat: ${application.address}
-⛪ Agama: ${application.religion || "Tidak terdeteksi"}
 💼 Pekerjaan: ${application.occupation || "Tidak terdeteksi"}
 
 🏪 DATA AGEN:
@@ -588,12 +591,12 @@ Status: ${this.getStatusText(application.status)}
       [SessionStep.ACCOUNT_HOLDER_NAME]: 9,
       [SessionStep.BANK_NAME]: 10,
       [SessionStep.ACCOUNT_NUMBER]: 11,
-      [SessionStep.SIGNATURE_PHOTO]: 12,
-      [SessionStep.SIGNATURE_PREVIEW]: 13,
-      [SessionStep.LOCATION_PHOTOS]: 14,
-      [SessionStep.BANK_BOOK_PHOTO]: 15,
-      [SessionStep.TERMS_CONDITIONS]: 16,
-      [SessionStep.CONFIRMATION]: 17,
+      // [SessionStep.SIGNATURE_PHOTO]: 12,
+      [SessionStep.SIGNATURE_PREVIEW]: 12,
+      [SessionStep.LOCATION_PHOTOS]: 13,
+      [SessionStep.BANK_BOOK_PHOTO]: 14,
+      [SessionStep.TERMS_CONDITIONS]: 15,
+      [SessionStep.CONFIRMATION]: 16,
     };
 
     return stepNumbers[step] || 0;

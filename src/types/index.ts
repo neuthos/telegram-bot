@@ -348,12 +348,23 @@ export interface BotInstance {
 export interface OCRKTPResponse {
   success: boolean;
   data?: {
-    full_name: string;
-    address: string;
-    id_card_number: string;
-    religion?: string;
-    occupation?: string;
-    postal_code?: string;
+    nik: string;
+    nama: string;
+    tempat_lahir?: string;
+    tanggal_lahir?: string;
+    jenis_kelamin?: string;
+    golongan_darah?: string;
+    alamat: string;
+    rt_rw?: string;
+    kelurahan_desa?: string;
+    kecamatan?: string;
+    agama?: string;
+    status_perkawinan?: string;
+    pekerjaan?: string;
+    kewarganegaraan?: string;
+    berlaku_hingga?: string;
+    provinsi: string;
+    kota: string;
   };
   message?: string;
 }

@@ -66,7 +66,6 @@ export class FileService {
     }
   }
 
-  // Method untuk ambil compressed photo dari telegram
   public getCompressedPhotoFileId(photoSizes: TelegramBot.PhotoSize[]): string {
     if (photoSizes.length === 0) {
       throw new Error("No photo sizes available");
@@ -92,5 +91,64 @@ export class FileService {
     });
 
     return selectedPhoto.file_id;
+  }
+
+  public async downloadOriginalFile(
+    bot: TelegramBot,
+    fileId: string
+  ): Promise<{buffer: Buffer; mimeType: string; fileName: string}> {
+    try {
+      const file = await bot.getFile(fileId);
+
+      if (!file.file_path) {
+        throw new Error("File path not available");
+      }
+
+      const fileStream = bot.getFileStream(fileId);
+      const chunks: Buffer[] = [];
+
+      for await (const chunk of fileStream) {
+        chunks.push(chunk);
+      }
+
+      const buffer = Buffer.concat(chunks);
+      const extension = file.file_path.split(".").pop() || "jpg";
+      const mimeType = `image/${extension}`;
+      const fileName = `ktp_${Date.now()}.${extension}`;
+
+      return {buffer, mimeType, fileName};
+    } catch (error) {
+      this.logger.error("Error downloading original file:", {fileId, error});
+      throw error;
+    }
+  }
+
+  public async uploadOriginalFile(
+    fileBuffer: Buffer,
+    fileName: string,
+    mimeType: string
+  ): Promise<{fileUrl: string; fileName: string; fileSize: number}> {
+    try {
+      const fileUrl = await this.cdnService.uploadFile(
+        fileBuffer,
+        fileName,
+        mimeType
+      );
+
+      this.logger.info("Original file uploaded successfully:", {
+        fileName,
+        fileUrl,
+        fileSize: fileBuffer.length,
+      });
+
+      return {
+        fileUrl,
+        fileName,
+        fileSize: fileBuffer.length,
+      };
+    } catch (error) {
+      this.logger.error("Error uploading original file:", {fileName, error});
+      throw error;
+    }
   }
 }

@@ -109,7 +109,7 @@ CREATE TABLE kyc_applications (
    account_holder_name VARCHAR(200) NOT NULL,
    bank_name VARCHAR(100) NOT NULL,
    account_number VARCHAR(50) NOT NULL,
-   serial_number_edc BOOLEAN  VARCHAR(50),
+   serial_number_edc VARCHAR(50),
    
    -- Location data
    province_code VARCHAR(10),
@@ -182,8 +182,10 @@ CREATE INDEX idx_instances_partner_status ON bot_instances(partner_id, status);
 -- Insert dummy data
 
 -- Insert partners
-INSERT INTO partners (name, bot_token, api_secret, is_active, rate_limit, ematerai_client_id, ematerai_client_email, ematerai_client_password) VALUES
-('PT. Ekosistem Pasar Digital', '7710604689:AAGwjsvqT5vLUcBgZjFg4ZngINuksB6Boag', 'secret_key_123', true, 100, 'EPADI01', 'miftah@epadi.id', 'e06f8217');
+INSERT INTO public.partners (id, name, bot_token, api_secret, webhook_url, is_active, rate_limit, emeterai_client_id, emeterai_client_email, emeterai_client_password, created_at, updated_at) VALUES (1, 'PT BOT 1', '7710604689:AAGwjsvqT5vLUcBgZjFg4ZngINuksB6Boag', 'secret_key_123', null, true, 100, 'EPADI01', 'miftah@epadi.id', 'e06f8217', '2025-06-26 18:50:12.941692', '2025-06-26 18:50:12.941692');
+INSERT INTO public.partners (id, name, bot_token, api_secret, webhook_url, is_active, rate_limit, emeterai_client_id, emeterai_client_email, emeterai_client_password, created_at, updated_at) VALUES (2, 'PT BOT 2', '8113248123:AAENSrzUJREKO8h8qHPs3NmMUIRIHp4HsKQ', 'secret_key_123', null, true, 100, 'EPADI01', 'miftah@epadi.id', 'e06f8217', '2025-06-26 18:50:12.941692', '2025-06-26 18:50:12.941692');
+INSERT INTO public.active_sessions (id, partner_id, telegram_id, username, first_name, last_name, current_step, form_data, created_at, updated_at) VALUES (5, 1, 1283954457, 'neuthos', 'Galang', 'Ardian', 'confirmation', '{"address": "RUSUN SOMBO BLOK B / 405", "pic_name": "CICA FARISTINA AFIANTI", "religion": "ISLAM", "bank_name": "Bank Mandiri", "city_name": "KOTA SURABAYA", "full_name": "CICA FARISTINA AFIANTI", "pic_phone": "081234567890", "agent_name": "EPADI-01", "occupation": "Pelajar/Mahasiswa", "tax_number": "", "postal_code": "10110", "id_card_photo": "http://official.aigent.id/api/v1/files/65f04106-0b39-4e40-ba2d-9cc47235cebd.jpg", "province_name": "JAWA TIMUR", "account_number": "068901012420509", "business_field": "Bengkel", "id_card_number": "3578115709950003", "terms_accepted": true, "bank_book_photo": "http://official.aigent.id/api/v1/files/a042c0d0-eaf8-4ce8-a24d-34ae0a85c7ab.jpg", "location_photos": ["http://official.aigent.id/api/v1/files/f2d26d87-1be4-4f5c-b657-a599933711d9.jpg"], "signature_photo": "http://official.aigent.id/api/v1/files/86d4daeb-5c00-439c-8746-2beb20fa0b28.png", "id_card_confirmed": true, "serial_number_edc": "K9001234", "account_owner_same": true, "account_holder_name": "CICA FARISTINA AFIANTI", "signature_confirmed": true}', '2025-06-26 23:49:32.639937', '2025-06-27 01:34:22.886240');
+
 
 -- Insert banks with codes
 INSERT INTO banks (bank_display, bank_code) VALUES
