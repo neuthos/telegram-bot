@@ -1,0 +1,30 @@
+version: "3.8"
+
+services:
+  kyc-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kyc-telegram-bot
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - DB_HOST=host.docker.internal
+      - DB_PORT=5432
+      - DB_NAME=kyc_bot
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      # - REDIS_URL=redis://redis:6379
+      - CDN_BASE_URL=https://official.aigent.id
+      - OCR_API_URL=http://127.0.0.1:8000
+      - EMETERAI_BASE_URL=https://sandbox.pastisah.id
+      - EMETERAI_API_KEY=213d5d8e-ad18-48f4-a7ea-8a1aea5835ee
+      - KTP_EXAMPLE_URL=http://official.aigent.id/api/v1/files/2f3e8524-2060-47ef-8950-950d51f21cd3.png
+      - SIGNATURE_EXAMPLE_URL=http://official.aigent.id/api/v1/files/87f0b2b2-a47e-4e4e-b320-4f3d06220e06.jpg
+    networks:
+      - kyc-network
+
+networks:
+  kyc-network:
+    driver: bridge
