@@ -6,14 +6,14 @@ DROP TABLE IF EXISTS kyc_photos CASCADE;
 DROP TABLE IF EXISTS kyc_applications CASCADE;
 DROP TABLE IF EXISTS active_sessions CASCADE;
 DROP TABLE IF EXISTS bot_instances CASCADE;
-DROP TABLE IF EXISTS partners CASCADE;
+DROP TABLE IF EXISTS bot_partners CASCADE;
 DROP TABLE IF EXISTS banks CASCADE;
 DROP TABLE IF EXISTS business_fields CASCADE;
 DROP TABLE IF EXISTS provinces CASCADE;
 DROP TABLE IF EXISTS cities CASCADE;
 
 -- Create partners table first
-CREATE TABLE partners (
+CREATE TABLE bot_partners (
   id SERIAL PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   bot_token VARCHAR(255) UNIQUE NOT NULL,
@@ -31,7 +31,7 @@ CREATE TABLE partners (
 -- Create bot instances table
 CREATE TABLE bot_instances (
   id SERIAL PRIMARY KEY,
-  partner_id INTEGER REFERENCES partners(id) ON DELETE CASCADE,
+  partner_id INTEGER REFERENCES bot_partners(id) ON DELETE CASCADE,
   instance_id VARCHAR(255) UNIQUE NOT NULL,
   hostname VARCHAR(255),
   status VARCHAR(50) DEFAULT 'active',
@@ -70,7 +70,7 @@ CREATE TABLE cities (
 -- Create active sessions table
 CREATE TABLE active_sessions (
    id SERIAL PRIMARY KEY,
-   partner_id INTEGER REFERENCES partners(id) ON DELETE CASCADE,
+   partner_id INTEGER REFERENCES bot_partners(id) ON DELETE CASCADE,
    telegram_id BIGINT NOT NULL,
    username VARCHAR(100),
    first_name VARCHAR(100),
@@ -85,7 +85,7 @@ CREATE TABLE active_sessions (
 -- Create main KYC applications table
 CREATE TABLE kyc_applications (
    id SERIAL PRIMARY KEY,
-   partner_id INTEGER REFERENCES partners(id) ON DELETE CASCADE,
+   partner_id INTEGER REFERENCES bot_partners(id) ON DELETE CASCADE,
    telegram_id BIGINT NOT NULL,
    username VARCHAR(100),
    first_name VARCHAR(100),
@@ -152,7 +152,7 @@ CREATE TABLE kyc_applications (
 -- Create photos table
 CREATE TABLE kyc_photos (
    id SERIAL PRIMARY KEY,
-   partner_id INTEGER REFERENCES partners(id) ON DELETE CASCADE,
+   partner_id INTEGER REFERENCES bot_partners(id) ON DELETE CASCADE,
    application_id INTEGER REFERENCES kyc_applications(id) ON DELETE CASCADE,
    photo_type VARCHAR(50) NOT NULL,
    file_url VARCHAR(500) NOT NULL,
@@ -175,15 +175,15 @@ CREATE INDEX idx_kyc_applications_tid ON kyc_applications(tid);
 CREATE INDEX idx_kyc_applications_mid ON kyc_applications(mid);
 CREATE INDEX idx_kyc_photos_application_id ON kyc_photos(application_id);
 CREATE INDEX idx_kyc_photos_type ON kyc_photos(photo_type);
-CREATE INDEX idx_partners_active ON partners(is_active);
-CREATE INDEX idx_partners_bot_token ON partners(bot_token) WHERE is_active = true;
+CREATE INDEX idx_partners_active ON bot_partners(is_active);
+CREATE INDEX idx_partners_bot_token ON bot_partners(bot_token) WHERE is_active = true;
 CREATE INDEX idx_instances_partner_status ON bot_instances(partner_id, status);
 
 -- Insert dummy data
 
 -- Insert partners
-INSERT INTO public.partners (id, name, bot_token, api_secret, webhook_url, is_active, rate_limit, emeterai_client_id, emeterai_client_email, emeterai_client_password, created_at, updated_at) VALUES (1, 'PT BOT 1', '7710604689:AAGwjsvqT5vLUcBgZjFg4ZngINuksB6Boag', 'secret_key_123', null, true, 100, 'EPADI01', 'miftah@epadi.id', 'e06f8217', '2025-06-26 18:50:12.941692', '2025-06-26 18:50:12.941692');
-INSERT INTO public.partners (id, name, bot_token, api_secret, webhook_url, is_active, rate_limit, emeterai_client_id, emeterai_client_email, emeterai_client_password, created_at, updated_at) VALUES (2, 'PT BOT 2', '8113248123:AAENSrzUJREKO8h8qHPs3NmMUIRIHp4HsKQ', 'secret_key_123', null, true, 100, 'EPADI01', 'miftah@epadi.id', 'e06f8217', '2025-06-26 18:50:12.941692', '2025-06-26 18:50:12.941692');
+INSERT INTO public.bot_partners (id, name, bot_token, api_secret, webhook_url, is_active, rate_limit, emeterai_client_id, emeterai_client_email, emeterai_client_password, created_at, updated_at) VALUES (1, 'PT BOT 1', '7710604689:AAGwjsvqT5vLUcBgZjFg4ZngINuksB6Boag', 'secret_key_123', null, true, 100, 'EPADI01', 'miftah@epadi.id', 'e06f8217', '2025-06-26 18:50:12.941692', '2025-06-26 18:50:12.941692');
+INSERT INTO public.bot_partners (id, name, bot_token, api_secret, webhook_url, is_active, rate_limit, emeterai_client_id, emeterai_client_email, emeterai_client_password, created_at, updated_at) VALUES (2, 'PT BOT 2', '8113248123:AAENSrzUJREKO8h8qHPs3NmMUIRIHp4HsKQ', 'secret_key_123', null, true, 100, 'EPADI01', 'miftah@epadi.id', 'e06f8217', '2025-06-26 18:50:12.941692', '2025-06-26 18:50:12.941692');
 INSERT INTO public.active_sessions (id, partner_id, telegram_id, username, first_name, last_name, current_step, form_data, created_at, updated_at) VALUES (5, 1, 1283954457, 'neuthos', 'Galang', 'Ardian', 'confirmation', '{"address": "RUSUN SOMBO BLOK B / 405", "pic_name": "CICA FARISTINA AFIANTI", "religion": "ISLAM", "bank_name": "Bank Mandiri", "city_name": "KOTA SURABAYA", "full_name": "CICA FARISTINA AFIANTI", "pic_phone": "081234567890", "agent_name": "EPADI-01", "occupation": "Pelajar/Mahasiswa", "tax_number": "", "postal_code": "10110", "id_card_photo": "http://official.aigent.id/api/v1/files/65f04106-0b39-4e40-ba2d-9cc47235cebd.jpg", "province_name": "JAWA TIMUR", "account_number": "068901012420509", "business_field": "Bengkel", "id_card_number": "3578115709950003", "terms_accepted": true, "bank_book_photo": "http://official.aigent.id/api/v1/files/a042c0d0-eaf8-4ce8-a24d-34ae0a85c7ab.jpg", "location_photos": ["http://official.aigent.id/api/v1/files/f2d26d87-1be4-4f5c-b657-a599933711d9.jpg"], "signature_photo": "http://official.aigent.id/api/v1/files/86d4daeb-5c00-439c-8746-2beb20fa0b28.png", "id_card_confirmed": true, "serial_number_edc": "K9001234", "account_owner_same": true, "account_holder_name": "CICA FARISTINA AFIANTI", "signature_confirmed": true}', '2025-06-26 23:49:32.639937', '2025-06-27 01:34:22.886240');
 
 

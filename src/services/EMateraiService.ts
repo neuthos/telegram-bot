@@ -143,7 +143,7 @@ export class EmeteraiService {
     const db = Database.getInstance().getPool();
     const result = await db.query(
       `SELECT emeterai_client_id, emeterai_client_email 
-       FROM partners WHERE id = $1`,
+       FROM bot_partners WHERE id = $1`,
       [partnerId]
     );
 

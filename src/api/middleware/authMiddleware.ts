@@ -32,7 +32,7 @@ export const authMiddleware = async (
   try {
     const db = Database.getInstance().getPool();
     const result = await db.query(
-      "SELECT id, name FROM partners WHERE id = $1 AND api_secret = $2 AND is_active = true",
+      "SELECT id, name FROM bot_partners WHERE id = $1 AND api_secret = $2 AND is_active = true",
       [partnerId, apiKey]
     );
 

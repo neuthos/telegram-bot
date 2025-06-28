@@ -50,7 +50,7 @@ export class TokenManager {
   private async getPartnerEmeteraiConfig(partnerId: number) {
     const result = await this.db.query(
       `SELECT emeterai_client_id, emeterai_client_email, emeterai_client_password 
-       FROM partners WHERE id = $1`,
+       FROM bot_partners WHERE id = $1`,
       [partnerId]
     );
 

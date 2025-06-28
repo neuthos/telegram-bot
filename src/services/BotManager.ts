@@ -92,7 +92,7 @@ export class BotManager {
 
   private async getActivePartners(): Promise<Partner[]> {
     const result = await this.db.query(
-      "SELECT * FROM partners WHERE is_active = true ORDER BY id"
+      "SELECT * FROM bot_partners WHERE is_active = true ORDER BY id"
     );
     return result.rows;
   }

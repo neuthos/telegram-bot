@@ -191,7 +191,7 @@ export class KYCController {
         return;
       }
       const partnerResult = await this.sessionService.db.query(
-        "SELECT name FROM partners WHERE id = $1",
+        "SELECT name FROM bot_partners WHERE id = $1",
         [req.partnerId]
       );
 
@@ -1022,7 +1022,7 @@ export class KYCController {
       });
 
       const partnerResult = await this.sessionService.db.query(
-        "SELECT bot_token FROM partners WHERE id = $1",
+        "SELECT bot_token FROM bot_partners WHERE id = $1",
         [partnerId]
       );
 
