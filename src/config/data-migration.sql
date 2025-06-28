@@ -15,6 +15,7 @@ DROP TABLE IF EXISTS cities CASCADE;
 -- Create partners table first
 CREATE TABLE bot_partners (
   id SERIAL PRIMARY KEY,
+  partner_id INTEGER NULL,
   name VARCHAR(255) NOT NULL,
   bot_token VARCHAR(255) UNIQUE NOT NULL,
   api_secret VARCHAR(255) NOT NULL,
