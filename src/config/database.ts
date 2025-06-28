@@ -23,10 +23,7 @@ export class Database {
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
       client_encoding: "UTF8",
-      ssl:
-        process.env.NODE_ENV === "production"
-          ? {rejectUnauthorized: false}
-          : false,
+      ssl: false,
     });
 
     this.pool.on("error", (err) => {
