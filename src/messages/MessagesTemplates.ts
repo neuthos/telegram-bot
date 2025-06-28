@@ -6,17 +6,12 @@ import {ProvinceService} from "../services/ProvinceService";
 import {SessionStep, FormData, KYCApplication, KYCPhoto} from "../types";
 
 export class MessageTemplates {
-  private botName: string;
   private bankService = new BankService();
   private provinceService = new ProvinceService();
   private businessFieldService = new BusinessFieldService();
 
-  constructor() {
-    this.botName = process.env.BOT_NAME || "KYC Registration Bot";
-  }
-
   public generateWelcomeMessage(): string {
-    return `🎉 Selamat datang di ${this.botName}!
+    return `🎉 Selamat datang!
 
 Untuk memulai pendaftaran KYC, gunakan command:
 
@@ -35,7 +30,7 @@ Untuk memulai pendaftaran KYC, gunakan command:
         ? "Confirmed (Sudah dikonfirmasi admin)"
         : "Rejected (Ditolak)";
 
-    return `🎉 Selamat datang kembali di ${this.botName}!
+    return `🎉 Selamat datang kembali!
 
 Anda sudah terdaftar KYC.
 Status: ${statusText}
@@ -46,7 +41,7 @@ Status: ${statusText}
   }
 
   public generateWelcomeMessageRejected(remark: string): string {
-    return `🎉 Selamat datang kembali di ${this.botName}!
+    return `🎉 Selamat datang kembali!
 
 📋 Aplikasi KYC sebelumnya ditolak
 📝 Alasan: ${remark}
