@@ -183,6 +183,7 @@ export class KYCController {
     try {
       const {id} = req.params;
       const {name, initial}: ConfirmRequest = req.body;
+
       if (!name || !initial) {
         res.status(400).json({
           success: false,
@@ -190,6 +191,7 @@ export class KYCController {
         });
         return;
       }
+
       const partnerResult = await this.sessionService.db.query(
         "SELECT name FROM bot_partners WHERE id = $1",
         [req.partnerId]

@@ -12,7 +12,6 @@ interface MessageJob {
 export class QueueService {
   private queues: Map<number, InMemoryQueue<MessageJob>> = new Map();
   private cache: CacheProvider;
-  private logger = Logger.getInstance();
 
   constructor() {
     this.cache = CacheFactory.create();

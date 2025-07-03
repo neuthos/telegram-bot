@@ -236,7 +236,7 @@ Upload foto lokasi usaha Anda (1-4 foto).
 - Tampak dalam
 - Tampak samping (opsional)
 
-Kirim foto satu per satu, lalu ketik "Lanjut" jika selesai.`,
+Kirim foto satu per satu, lalu ketik /Lanjut jika selesai.`,
 
       [SessionStep.BANK_BOOK_PHOTO]: `📄 Step 13: Upload Foto Buku Rekening
 
@@ -282,8 +282,8 @@ Apakah nama pemilik rekening bank sama dengan nama pemilik usaha?
 Jika sama, Anda tidak perlu mengisi nama pemilik rekening lagi.
 Jika berbeda, Anda akan diminta mengisi nama pemilik rekening terpisah.
 
-Ya - Sama dengan pemilik usaha
-Tidak - Berbeda dengan pemilik usaha`,
+/sama - Sama dengan pemilik usaha
+/tidak-sama - Berbeda dengan pemilik usaha`,
 
       [SessionStep.SERIAL_NUMBER_EDC]: `🔢 Step 11: Serial Number EDC
 
@@ -488,12 +488,12 @@ Terjadi kesalahan saat menyimpan data. Silakan coba lagi atau hubungi admin jika
   // BANK SELECTION
   public async generateBankSelectionMessage() {
     const banks = await this.bankService.getAllBanks();
-
+    console.log({banks});
     let message = `🏦 Pilih Bank Anda\n\nSilakan pilih dengan mengetik command berikut:\n\n`;
 
-    banks.forEach((bank: any, index) => {
-      const command = bank?.toLowerCase().replace(/\s+/g, "");
-      message += `/${command} - ${bank}\n`;
+    banks.forEach((bank: any) => {
+      const command = bank?.name?.toLowerCase().replace(/\s+/g, "");
+      message += `/${command} - (${bank?.bank_code}) ${bank.name}\n`;
     });
 
     return message;
@@ -731,8 +731,6 @@ Tidak Setuju - ❌ Tidak, saya tidak setuju (/tidaksetuju)`;
 
     return `⏩ Melanjutkan Pendaftaran KYC
 
-📝 Step ${stepNumber}/15
-
 ${stepMessage}`;
   }
   public generateRegistrationStartMessage(): string {
@@ -746,7 +744,6 @@ Lanjutkan Sesi Pendaftaran - ⏩ Lanjutkan yang belum selesai
 /menu - 🏠 Kembali ke menu utama`;
   }
 
-  // Method untuk display current step info
   public generateCurrentStepInfo(
     currentStep: SessionStep,
     formData: FormData

@@ -363,6 +363,23 @@ export class MessageHandler {
       case SessionStep.CITY_SELECTION:
         await this.handleCitySelection(bot, telegramId, selection, partnerId);
         break;
+      case SessionStep.ACCOUNT_OWNER_CONFIRMATION:
+        await this.handleAccountOwnerConfirmation(
+          bot,
+          telegramId,
+          selection,
+          session
+        );
+        break;
+      case SessionStep.LOCATION_PHOTOS:
+        if (
+          session.current_step === SessionStep.LOCATION_PHOTOS &&
+          selection === "Lanjut"
+        ) {
+          await this.handleLocationPhotosComplete(bot, telegramId, session);
+          return;
+        }
+        break;
       default:
         await this.handleUnknownMessage(bot, telegramId, partnerId);
     }
@@ -496,8 +513,7 @@ export class MessageHandler {
   private async handleLocationPhotosComplete(
     bot: TelegramBot,
     telegramId: number,
-    session: UserSession,
-    partnerId: number
+    session: UserSession
   ): Promise<void> {
     if (
       !session.form_data.location_photos ||
@@ -561,10 +577,9 @@ export class MessageHandler {
     session: UserSession
   ): Promise<void> {
     let isSame: boolean;
-
-    if (text === "Ya" || text === "/ya") {
+    if (text === "sama") {
       isSame = true;
-    } else if (text === "Tidak" || text === "/tidak") {
+    } else if (text === "tidaksama") {
       isSame = false;
     } else {
       await bot.sendMessage(
@@ -745,20 +760,6 @@ export class MessageHandler {
     // Handle photo uploads - FLOW BARU
     if (msg.photo && this.isPhotoStep(session.current_step)) {
       await this.handlePhotoUpload(bot, msg, session, partnerId);
-      return;
-    }
-
-    // Handle text untuk location photos
-    if (
-      session.current_step === SessionStep.LOCATION_PHOTOS &&
-      text === "Lanjut"
-    ) {
-      await this.handleLocationPhotosComplete(
-        bot,
-        telegramId,
-        session,
-        partnerId
-      );
       return;
     }
 
@@ -1115,18 +1116,12 @@ export class MessageHandler {
         await bot.sendMessage(
           telegramId,
           `✅ Foto lokasi ${formData.location_photos.length} berhasil diupload!\n\n` +
-            `Kirim foto lokasi lainnya atau ketik "Lanjut" jika sudah selesai.\n` +
+            `Kirim foto lokasi lainnya atau ketik /Lanjut jika sudah selesai.\n` +
             `(Maksimal 4 foto, saat ini: ${formData.location_photos.length}/4)`
         );
         return;
       } else {
-        // Auto proceed if 4 photos
-        await this.handleLocationPhotosComplete(
-          bot,
-          telegramId,
-          session,
-          partnerId
-        );
+        await this.handleLocationPhotosComplete(bot, telegramId, session);
       }
     } else {
       formData[session.current_step] = uploadResult.fileUrl;
@@ -1213,52 +1208,6 @@ export class MessageHandler {
     }
   }
 
-  private async getNextStepAfterPhoto(
-    currentStep: string
-  ): Promise<SessionStep | null> {
-    switch (currentStep) {
-      case SessionStep.BANK_BOOK_PHOTO:
-        return SessionStep.ID_CARD_PHOTO;
-      case SessionStep.ID_CARD_PHOTO:
-        return SessionStep.TERMS_CONDITIONS;
-      default:
-        return null;
-    }
-  }
-
-  private async proceedToNextStep(
-    bot: TelegramBot,
-    telegramId: number,
-    session: any,
-    nextStep: SessionStep,
-    partnerId: number
-  ): Promise<void> {
-    await this.sessionService.createOrUpdateSession({
-      partner_id: partnerId,
-      telegram_id: telegramId,
-      current_step: nextStep,
-      form_data: session.form_data,
-    });
-
-    if (nextStep === SessionStep.TERMS_CONDITIONS) {
-      await bot.sendMessage(
-        telegramId,
-        this.messages.generateTermsConditionsMessage()
-      );
-    } else if (nextStep === SessionStep.CONFIRMATION) {
-      await bot.sendMessage(
-        telegramId,
-        this.messages.generateConfirmationMessage(session.form_data)
-      );
-    } else {
-      await bot.sendMessage(
-        telegramId,
-        this.messages.generateContinueRegistrationMessage(nextStep)
-      );
-    }
-  }
-
-  // Welcome Messages
   private async sendWelcomeMessage(
     bot: TelegramBot,
     telegramId: number
@@ -1820,68 +1769,12 @@ export class MessageHandler {
     }
   }
 
-  private async handleConfirmationCommand(
-    bot: TelegramBot,
-    telegramId: number,
-    action: string,
-    partnerId: number
-  ): Promise<void> {
-    const session = await this.sessionService.getActiveSession(
-      partnerId,
-      telegramId
-    );
-    if (
-      !session ||
-      (session.current_step !== SessionStep.CONFIRMATION &&
-        session.current_step !== SessionStep.TERMS_CONDITIONS)
-    ) {
-      await bot.sendMessage(
-        telegramId,
-        this.messages.generateNoActiveSessionMessage()
-      );
-      return;
-    }
-
-    const mockMsg = {
-      from: {
-        id: telegramId,
-        username: session.username,
-        first_name: session.first_name,
-        last_name: session.last_name,
-      },
-    } as TelegramBot.Message;
-
-    // Handle terms acceptance
-    if (session.current_step === SessionStep.TERMS_CONDITIONS) {
-      await this.handleTermsConditions(
-        bot,
-        telegramId,
-        action,
-        session,
-        mockMsg,
-        partnerId
-      );
-      return;
-    }
-
-    // Handle confirmation
-    await this.handleConfirmation(
-      bot,
-      telegramId,
-      action,
-      session,
-      mockMsg,
-      partnerId
-    );
-  }
-
   private async processRegistration(
     bot: TelegramBot,
     telegramId: number,
     session: UserSession
   ): Promise<void> {
     try {
-      // Validate minimum requirements
       if (
         !session.form_data.location_photos ||
         session.form_data.location_photos.length === 0
