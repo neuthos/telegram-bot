@@ -3,28 +3,38 @@ FROM node:18-alpine AS dependencies
 WORKDIR /app
 
 RUN apk add --no-cache \
-    python3 \
-    make \
-    g++ \
     chromium \
-    && npm config set cache /tmp/.npm
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont
 
 COPY package*.json ./
 
+# Install production dependencies
 RUN npm ci \
-    --prefer-offline \
+    --omit=dev \
+    --no-optional \
     --no-audit \
     --no-fund \
     --ignore-scripts \
-    && npm rebuild \
     && npm cache clean --force
 
 FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-COPY --from=dependencies /app/node_modules ./node_modules
-COPY package*.json tsconfig.json ./
+COPY package*.json ./
+
+# Install ALL dependencies (including dev) untuk build
+RUN npm ci \
+    --no-optional \
+    --no-audit \
+    --no-fund \
+    --ignore-scripts
+
+COPY tsconfig.json ./
 COPY src/ ./src/
 
 RUN NODE_OPTIONS="--max-old-space-size=2048" npm run build
@@ -33,15 +43,21 @@ FROM node:18-alpine AS production
 
 WORKDIR /app
 
-RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont curl
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    curl
 
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser \
     NODE_ENV=production
 
-COPY package*.json ./
-RUN npm ci --only=production --no-audit --no-fund && npm cache clean --force
-
+COPY --from=dependencies /app/node_modules ./node_modules
+COPY --from=dependencies /app/package*.json ./
 COPY --from=builder /app/dist ./dist
 
 RUN mkdir -p logs uploads/kyc public/pdfs && \

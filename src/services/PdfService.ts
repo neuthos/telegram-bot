@@ -1,33 +1,58 @@
-// src/services/PdfService.ts - Updated untuk flow baru
-
-import puppeteer from "puppeteer";
 import {KYCApplication, KYCPhoto} from "../types";
 import {Logger} from "../config/logger";
 import {CDNService} from "./CDNService";
 import {EmeteraiService} from "./EMateraiService";
-import * as fs from "fs";
+import {Browser, BrowserContext, chromium} from "playwright";
 export class PDFService {
   private logger = Logger.getInstance();
   private cdnService = new CDNService();
   private emateraiService = new EmeteraiService();
 
+  private static browserInstance: Browser | null = null;
+
+  private async getBrowser(): Promise<Browser> {
+    if (!PDFService.browserInstance) {
+      PDFService.browserInstance = await chromium.launch({
+        headless: true,
+        executablePath:
+          process.env.NODE_ENV === "production"
+            ? "/usr/bin/chromium-browser"
+            : undefined,
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+          "--disable-web-security",
+          "--disable-background-networking",
+          "--disable-background-timer-throttling",
+        ],
+      });
+    }
+    return PDFService.browserInstance;
+  }
+
+  private async getContext(): Promise<BrowserContext> {
+    const browser = await this.getBrowser();
+    const context = await browser.newContext({
+      viewport: null,
+    });
+    return context;
+  }
+
   public async generateKYCPDF(
     application: KYCApplication,
     photos: KYCPhoto[]
   ): Promise<string> {
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
+    const context = await this.getContext();
 
     try {
-      const page = await browser.newPage();
-
+      const page = await context.newPage();
       const html = this.generateHTMLTemplate(application, photos);
 
-      await page.setContent(html, {waitUntil: "networkidle0"});
-
-      const fileName = `kyc_${application.id}_${Date.now()}.pdf`;
+      await page.setContent(html, {
+        waitUntil: "networkidle",
+        timeout: 30000,
+      });
 
       const pdfBuffer = await page.pdf({
         format: "A4",
@@ -41,21 +66,16 @@ export class PDFService {
         application.partner_id
       );
 
+      const fileName = `kyc_${application.id}_${Date.now()}.pdf`;
       const pdfUrl = await this.cdnService.uploadFile(
         convertedBuffer,
         fileName,
         "application/pdf"
       );
 
-      this.logger.info("PDF generated and uploaded:", {
-        applicationId: application.id,
-        fileName,
-        pdfUrl,
-      });
-
       return pdfUrl;
     } finally {
-      await browser.close();
+      await context.close(); // Close context, keep browser
     }
   }
 
@@ -78,6 +98,13 @@ export class PDFService {
       return {line1, line2, line3};
     }
   };
+
+  public static async closeBrowser(): Promise<void> {
+    if (PDFService.browserInstance) {
+      await PDFService.browserInstance.close();
+      PDFService.browserInstance = null;
+    }
+  }
 
   private generateHTMLTemplate(
     application: KYCApplication,
