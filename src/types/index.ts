@@ -55,6 +55,7 @@ export interface KYCApplication {
   confirmed_by_name?: string;
   confirmed_by_initial?: string;
   confirmed_by_partner?: string;
+  pic_signature_image?: string; // NEW: Store signature image URL
   admin_confirmed_at?: Date;
   admin_rejected_at?: Date;
   emeterai_status: EmeteraiStatus;
@@ -290,12 +291,6 @@ export interface BulkStampRequest {
   }>;
 }
 
-export interface ConfirmRequest {
-  name: string;
-  initial: string;
-  partner_name: string;
-}
-
 export interface RejectRequest {
   remark: string;
   name: string;
@@ -303,13 +298,16 @@ export interface RejectRequest {
   partner_name: string;
 }
 
+export interface ConfirmRequest {
+  name: string;
+  pic_signature_image: string;
+}
+
 export interface BulkConfirmRequest {
   ids: number[];
   name: string;
-  initial: string;
-  partner_name: string;
+  pic_signature_image: string;
 }
-
 export interface BulkRejectRequest {
   applications: Array<{
     id: number;
@@ -318,6 +316,43 @@ export interface BulkRejectRequest {
   name: string;
   initial: string;
   partner_name: string;
+}
+
+export interface CreateKYCRequest {
+  partner_id: number;
+  telegram_id: number;
+  username?: string;
+  first_name?: string;
+  last_name?: string;
+  form_data: {
+    full_name: string;
+    address: string;
+    religion?: string;
+    occupation?: string;
+    postal_code?: string;
+    agent_name: string;
+    owner_name: string;
+    business_field: string;
+    pic_name: string;
+    pic_phone: string;
+    id_card_number: string;
+    tax_number?: string;
+    account_holder_name: string;
+    bank_name: string;
+    account_number: string;
+    serial_number_edc?: string;
+    id_card_photo: string;
+    signature_photo: string;
+    location_photos: string[];
+    bank_book_photo: string;
+    terms_accepted: boolean;
+    province_code?: string;
+    province_name?: string;
+    city_code?: string;
+    city_name?: string;
+    id_card_confirmed: boolean;
+    signature_confirmed: boolean;
+  };
 }
 
 export interface Partner {

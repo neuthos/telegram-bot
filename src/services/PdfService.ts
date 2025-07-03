@@ -25,8 +25,6 @@ export class PDFService {
 
       const html = this.generateHTMLTemplate(application, photos);
 
-      fs.writeFileSync("temp.html", html);
-
       await page.setContent(html, {waitUntil: "networkidle0"});
 
       const fileName = `kyc_${application.id}_${Date.now()}.pdf`;
@@ -331,7 +329,13 @@ export class PDFService {
               <div class="mt-2">Mataram, <span class="border-b border-black px-2">${day}</span> <span class="border-b border-black px-2">${month}</span> 20<span class="border-b border-black px-2">${year}</span></div>
               <div class="flex justify-between">
                 <div>
-                  <div class="signature-initials mt-12 text-center mb-3">${confirmedByInitial}</div>
+                  <div class="mt-12 text-center mb-3" style="height: 60px">
+                    ${
+                      application.pic_signature_image
+                        ? `<img src="${application.pic_signature_image}" alt="Admin Signature" class="max-w-full max-h-full object-contain mx-auto" style="height: 60px" />`
+                        : `<div class="signature-initials">${confirmedByName}</div>`
+                    }
+                  </div>
                   <div class="flex">
                     <span class="text-[8px]">(</span>
                     <div class="text-xs text-center border-b border-black px-6">${confirmedByName}</div>

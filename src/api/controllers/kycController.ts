@@ -10,6 +10,7 @@ import {
   BulkConfirmRequest,
   BulkRejectRequest,
   ConfirmRequest,
+  CreateKYCRequest,
 } from "../../types";
 import TelegramBot from "node-telegram-bot-api";
 import {MessageTemplates} from "../../messages/MessagesTemplates";
@@ -41,6 +42,197 @@ export class KYCController {
       res.status(500).json({
         success: false,
         message: "Internal server error",
+      });
+    }
+  };
+
+  public createApplication = async (
+    req: Request,
+    res: Response<ApiResponse>
+  ): Promise<void> => {
+    try {
+      const requestData: CreateKYCRequest = req.body;
+
+      const requiredFields = ["partner_id", "telegram_id", "form_data"];
+
+      for (const field of requiredFields) {
+        if (!requestData[field as keyof CreateKYCRequest]) {
+          res.status(400).json({
+            success: false,
+            message: `${field} is required`,
+          });
+          return;
+        }
+      }
+
+      const formDataRequiredFields = [
+        "full_name",
+        "address",
+        "agent_name",
+        "owner_name",
+        "business_field",
+        "pic_name",
+        "pic_phone",
+        "id_card_number",
+        "account_holder_name",
+        "bank_name",
+        "account_number",
+        "id_card_photo",
+        "signature_photo",
+        "bank_book_photo",
+        "terms_accepted",
+      ];
+
+      for (const field of formDataRequiredFields) {
+        if (
+          !requestData.form_data[field as keyof typeof requestData.form_data]
+        ) {
+          res.status(400).json({
+            success: false,
+            message: `form_data.${field} is required`,
+          });
+          return;
+        }
+      }
+
+      if (
+        !Array.isArray(requestData.form_data.location_photos) ||
+        requestData.form_data.location_photos.length === 0
+      ) {
+        res.status(400).json({
+          success: false,
+          message: "form_data.location_photos must be a non-empty array",
+        });
+        return;
+      }
+
+      const existingApp = await this.sessionService.getKYCApplication(
+        requestData.partner_id,
+        requestData.telegram_id
+      );
+
+      if (existingApp) {
+        res.status(409).json({
+          success: false,
+          message: "Application already exists for this telegram user",
+          data: {
+            existing_application_id: existingApp.id,
+            status: existingApp.status,
+          },
+        });
+        return;
+      }
+
+      const client = await this.sessionService.db.connect();
+
+      try {
+        await client.query("BEGIN");
+
+        const applicationResult = await client.query(
+          `INSERT INTO kyc_applications (
+            partner_id, telegram_id, username, first_name, last_name,
+            full_name, address, religion, occupation, postal_code, id_card_number,
+            agent_name, owner_name, business_field, pic_name, pic_phone,
+            tax_number, account_holder_name, bank_name, account_number,
+            serial_number_edc, 
+            province_code, province_name, city_code, city_name, status,
+            is_processed, is_reviewed_by_artajasa
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
+          RETURNING id`,
+          [
+            requestData.partner_id,
+            requestData.telegram_id,
+            requestData.username,
+            requestData.first_name,
+            requestData.last_name,
+            requestData.form_data.full_name,
+            requestData.form_data.address,
+            requestData.form_data.religion,
+            requestData.form_data.occupation,
+            requestData.form_data.postal_code,
+            requestData.form_data.id_card_number,
+            requestData.form_data.agent_name,
+            requestData.form_data.owner_name,
+            requestData.form_data.business_field,
+            requestData.form_data.pic_name,
+            requestData.form_data.pic_phone,
+            requestData.form_data.tax_number,
+            requestData.form_data.account_holder_name,
+            requestData.form_data.bank_name,
+            requestData.form_data.account_number,
+            requestData.form_data.serial_number_edc,
+            requestData.form_data.province_code,
+            requestData.form_data.province_name,
+            requestData.form_data.city_code,
+            requestData.form_data.city_name,
+            "draft",
+            false,
+            false,
+          ]
+        );
+
+        const applicationId = applicationResult.rows[0].id;
+
+        const photos = [
+          {
+            type: "id_card",
+            url: requestData.form_data.id_card_photo,
+          },
+          {
+            type: "signature",
+            url: requestData.form_data.signature_photo,
+          },
+          {
+            type: "bank_book",
+            url: requestData.form_data.bank_book_photo,
+          },
+        ];
+
+        for (const locationPhoto of requestData.form_data.location_photos) {
+          photos.push({
+            type: "location_photos",
+            url: locationPhoto,
+          });
+        }
+
+        for (const photo of photos) {
+          await client.query(
+            `INSERT INTO kyc_photos 
+            (partner_id, application_id, photo_type, file_url, file_name)
+            VALUES ($1, $2, $3, $4, $5)`,
+            [
+              requestData.partner_id,
+              applicationId,
+              photo.type,
+              photo.url,
+              photo.url.split("/").pop() || "",
+            ]
+          );
+        }
+
+        await client.query("COMMIT");
+
+        res.status(201).json({
+          success: true,
+          message: "KYC application created successfully",
+          data: {
+            application_id: applicationId,
+            status: "draft",
+            partner_id: requestData.partner_id,
+            telegram_id: requestData.telegram_id,
+          },
+        });
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      this.logger.error("Error creating KYC application:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to create KYC application",
       });
     }
   };
@@ -177,31 +369,23 @@ export class KYCController {
   };
 
   public confirmApplication = async (
-    req: AuthRequest,
+    req: Request,
     res: Response<ApiResponse>
   ): Promise<void> => {
     try {
       const {id} = req.params;
-      const {name, initial}: ConfirmRequest = req.body;
+      const {name, pic_signature_image}: ConfirmRequest = req.body;
 
-      if (!name || !initial) {
+      if (!name || !pic_signature_image) {
         res.status(400).json({
           success: false,
-          message: "Name, initial, and partner_name are required",
+          message: "Name and pic_signature_image are required",
         });
         return;
       }
 
-      const partnerResult = await this.sessionService.db.query(
-        "SELECT name FROM bot_partners WHERE id = $1",
-        [req.partnerId]
-      );
-
-      const partnerName = partnerResult.rows[0]?.name || "Partner";
-
       const application = await this.sessionService.getKYCApplicationById(
-        parseInt(id),
-        req.partnerId
+        parseInt(id)
       );
 
       if (!application) {
@@ -220,25 +404,34 @@ export class KYCController {
         return;
       }
 
+      const partnerResult = await this.sessionService.db.query(
+        "SELECT name FROM bot_partners WHERE id = $1",
+        [application.partner_id]
+      );
+
+      const partnerName = partnerResult.rows[0]?.name || "Partner";
+
+      await this.sessionService.updateApplicationStatusWithAdminAndSignature(
+        parseInt(id),
+        "confirmed",
+        name,
+        pic_signature_image,
+        partnerName
+      );
+
+      const updatedApplication =
+        await this.sessionService.getKYCApplicationById(parseInt(id));
+
       const photos = await this.sessionService.getApplicationPhotos(
         parseInt(id)
       );
-      const updatedApplication =
-        await this.sessionService.getKYCApplicationById(parseInt(id));
 
       const pdfUrl = await this.pdfService.generateKYCPDF(
         updatedApplication!,
         photos
       );
-      await this.sessionService.updateApplicationPdfUrl(parseInt(id), pdfUrl);
 
-      await this.sessionService.updateApplicationStatusWithAdmin(
-        parseInt(id),
-        "confirmed",
-        name,
-        initial,
-        partnerName
-      );
+      await this.sessionService.updateApplicationPdfUrl(parseInt(id), pdfUrl);
 
       await this.sendTelegramNotification(
         application.telegram_id,
@@ -247,7 +440,7 @@ export class KYCController {
           pdfUrl,
           application: updatedApplication,
         },
-        req.partnerId as number
+        application.partner_id
       );
 
       res.json({
@@ -257,6 +450,8 @@ export class KYCController {
           id: parseInt(id),
           status: "confirmed",
           pdf_url: pdfUrl,
+          confirmed_by: name,
+          pic_signature_image,
         },
       });
     } catch (error) {
@@ -269,11 +464,11 @@ export class KYCController {
   };
 
   public bulkConfirmApplications = async (
-    req: AuthRequest,
+    req: Request,
     res: Response<ApiResponse>
   ): Promise<void> => {
     try {
-      const {ids, name, initial, partner_name}: BulkConfirmRequest = req.body;
+      const {ids, name, pic_signature_image}: BulkConfirmRequest = req.body;
 
       if (!Array.isArray(ids) || ids.length === 0) {
         res.status(400).json({
@@ -283,10 +478,10 @@ export class KYCController {
         return;
       }
 
-      if (!name || !initial || !partner_name) {
+      if (!name || !pic_signature_image) {
         res.status(400).json({
           success: false,
-          message: "Name, initial, and partner_name are required",
+          message: "Name and pic_signature_image are required",
         });
         return;
       }
@@ -310,17 +505,24 @@ export class KYCController {
             continue;
           }
 
-          await this.sessionService.updateApplicationStatusWithAdmin(
+          const partnerResult = await this.sessionService.db.query(
+            "SELECT name FROM bot_partners WHERE id = $1",
+            [application.partner_id]
+          );
+          const partnerName = partnerResult.rows[0]?.name || "Partner";
+
+          await this.sessionService.updateApplicationStatusWithAdminAndSignature(
             id,
             "confirmed",
             name,
-            initial,
-            partner_name
+            pic_signature_image,
+            partnerName
           );
 
-          const photos = await this.sessionService.getApplicationPhotos(id);
           const updatedApplication =
             await this.sessionService.getKYCApplicationById(id);
+
+          const photos = await this.sessionService.getApplicationPhotos(id);
           const pdfUrl = await this.pdfService.generateKYCPDF(
             updatedApplication!,
             photos
@@ -335,7 +537,7 @@ export class KYCController {
                 pdfUrl,
                 application: updatedApplication,
               },
-              req.partnerId as number
+              application.partner_id
             );
           } catch (telegramError) {
             this.logger.error(
@@ -349,6 +551,7 @@ export class KYCController {
             status: "confirmed",
             pdf_url: pdfUrl,
             confirmed_by: name,
+            pic_signature_image,
             confirmed_at: new Date(),
           });
         } catch (error) {
@@ -356,7 +559,6 @@ export class KYCController {
           errors.push({id, error: "Confirmation failed"});
         }
       }
-
       res.json({
         success: true,
         message: `Confirmed ${results.length} applications, ${errors.length} errors`,
@@ -365,8 +567,7 @@ export class KYCController {
           errors,
           confirmed_by: {
             name,
-            initial,
-            partner_name,
+            pic_signature_image,
           },
         },
       });

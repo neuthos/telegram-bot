@@ -708,4 +708,45 @@ export class SessionService {
       [applicationIds]
     );
   }
+
+  public async updateApplicationStatusWithAdminAndSignature(
+    id: number,
+    status: "confirmed" | "rejected",
+    confirmedByName: string,
+    picSignatureImage: string,
+    confirmedByPartner: string
+  ): Promise<void> {
+    try {
+      if (status === "confirmed") {
+        await this.db.query(
+          `UPDATE kyc_applications 
+         SET status = $1, confirmed_by_name = $2, pic_signature_image = $3, 
+             confirmed_by_partner = $4, admin_confirmed_at = CURRENT_TIMESTAMP, 
+             updated_at = CURRENT_TIMESTAMP 
+         WHERE id = $5`,
+          [status, confirmedByName, picSignatureImage, confirmedByPartner, id]
+        );
+      } else {
+        throw new Error("Use rejectApplication method for rejection");
+      }
+
+      this.logger.info("Application confirmed with admin info and signature:", {
+        id,
+        status,
+        confirmedByName,
+        picSignatureImage,
+        confirmedByPartner,
+      });
+    } catch (error) {
+      this.logger.error(
+        "Error updating application status with admin info and signature:",
+        {
+          id,
+          status,
+          error,
+        }
+      );
+      throw error;
+    }
+  }
 }
